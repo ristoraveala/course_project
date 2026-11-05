@@ -1,0 +1,19 @@
+name = "course_project-1"
+version = "0.1.0"
+keywords = ["math"]
+defaultTargets = ["CourseProject1"]
+
+[leanOptions]
+pp.unicode.fun = true # pretty-prints `fun a ↦ b`
+relaxedAutoImplicit = false
+weak.linter.mathlibStandardSet = false
+maxSynthPendingDepth = 3
+linter.unusedSectionVars = false
+
+[[require]]
+name = "mathlib"
+scope = "leanprover-community"
+rev = "v4.36.0-rc2"
+
+[[lean_lib]]
+name = "CourseProject"
