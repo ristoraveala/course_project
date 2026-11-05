@@ -53,8 +53,14 @@ lemma charFun_transformation (a b : ℝ) :
 
 lemma charFun_nth_derivative (n:ℕ) (moments : Integrable (fun x ↦ |x|^n) μ) :
   ContDiff ℝ n (charFun μ) ∧ iteratedDeriv n (charFun μ) = fun t:ℝ ↦ (I:ℂ)^n * μ[fun x ↦ (x:ℝ)^n * cexp (x * t * I)] := by
-
-    sorry
+    induction n with
+    | zero => -- use charFun_cts and simp
+      constructor
+      · apply contDiff_zero.mpr
+        exact charFun_cts μ
+      · sorry
+    | succ n ih => -- use contDiff_iff_continuous_differentiable and iteratedDeriv_succ
+      sorry
 
 lemma charFun_nth_derivative_zero (n:ℕ) (moments : Integrable (fun x ↦ |x|^n) μ) :
   iteratedDeriv n (charFun μ) 0 = (I:ℂ)^n * μ[fun x ↦ (x:ℝ)^n] := by
