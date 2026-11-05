@@ -11,9 +11,6 @@ variable {X : ℕ → Ω → ℝ} (meas : ∀ n, Measurable (X n))
   (iid : iIndepFun X ℙ)
   (snd_moments : ∀ n, MemLp (X n) 2 ℙ)
 
-
-#check TendstoInDistribution
-
 include iid snd_moments in
 theorem CLT : TendstoInDistribution
   (fun (n:ℕ) ↦ fun ω ↦ (1/√(n * variance (X 1) ℙ)) * (∑ i ∈ Finset.Icc 1 n, (X i ω - ℙ[X i])))

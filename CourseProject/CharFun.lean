@@ -51,16 +51,49 @@ lemma charFun_transformation (a b : ℝ) :
   apply congrArg cexp
   grind
 
+-- I want my money back, this lemma (in a more general form) should be in Mathlib!
+lemma contDiff_succ_of_iteratedDeriv {f : ℝ → ℂ} {n:ℕ} (hf : ContDiff ℝ n f) (hn : ContDiff ℝ 1 (iteratedDeriv n f)) : ContDiff ℝ (n+1) f := sorry
+
 lemma charFun_nth_derivative (n:ℕ) (moments : Integrable (fun x ↦ |x|^n) μ) :
-  ContDiff ℝ n (charFun μ) ∧ iteratedDeriv n (charFun μ) = fun t:ℝ ↦ (I:ℂ)^n * μ[fun x ↦ (x:ℝ)^n * cexp (x * t * I)] := by
+  ContDiff ℝ n (charFun μ) ∧ iteratedDeriv n (charFun μ) = fun t:ℝ ↦ (I:ℂ)^n * μ[fun x ↦ (x:ℝ)^n * cexp (t * x * I)] := by
     induction n with
     | zero => -- use charFun_cts and simp
       constructor
       · apply contDiff_zero.mpr
         exact charFun_cts μ
-      · sorry
-    | succ n ih => -- use contDiff_iff_continuous_differentiable and iteratedDeriv_succ
-      sorry
+      · rw [iteratedDeriv_zero]
+        ext t
+        rw [charFun]
+        simp
+    | succ n ih =>
+      have : Integrable (fun x ↦ |x|^n) μ := sorry
+      have ih' := ih this
+      have deriv_hyp : ∀ t:ℝ, HasDerivAt (fun (s:ℝ) ↦ ∫ x, x ^ n * cexp (s * x * I) ∂μ) (∫ x, I * x ^ (n+1) * cexp (t * x * I) ∂μ) t := sorry
+      have succ_n_th_derivative_formula :
+        iteratedDeriv (n+1) (charFun μ) = fun t:ℝ ↦ (I:ℂ)^(n+1) * μ[fun x ↦ (x:ℝ)^(n+1) * cexp (t * x * I)] := by
+        rw [iteratedDeriv_succ, ih'.right]
+        ext t
+
+        sorry
+      constructor
+      · apply contDiff_succ_of_iteratedDeriv ih'.left
+        rw [ih'.right]
+        simp
+        apply contDiff_const.mul
+
+        apply contDiff_one_iff_deriv.mpr
+        constructor
+        · intro t
+          exact HasDerivAt.differentiableAt (deriv_hyp t)
+        · have : deriv (fun (t:ℝ) ↦ ∫ (x : ℝ), x ^ n * cexp (t * x * I) ∂μ) = (fun (t:ℝ) ↦ ∫ x, I * x ^ (n+1) * cexp (t * x * I) ∂μ) := by
+            ext t
+            rw [← HasDerivAt.deriv (deriv_hyp t)]
+          rw [this]
+
+          -- use this lemma, make all of the hypotheses work.
+          #check continuous_of_dominated
+          sorry
+      · exact succ_n_th_derivative_formula
 
 lemma charFun_nth_derivative_zero (n:ℕ) (moments : Integrable (fun x ↦ |x|^n) μ) :
   iteratedDeriv n (charFun μ) 0 = (I:ℂ)^n * μ[fun x ↦ (x:ℝ)^n] := by
