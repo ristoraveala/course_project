@@ -1,6 +1,6 @@
 import Mathlib
 
-open NNReal ENNReal MeasureTheory ProbabilityTheory BigOperators Topology Filter Complex
+open NNReal ENNReal MeasureTheory ProbabilityTheory BigOperators Topology Filter Complex Finset
 open Measure
 open scoped Real
 
@@ -51,8 +51,113 @@ lemma charFun_transformation (a b : ℝ) :
   apply congrArg cexp
   grind
 
+
+-- To prove our Taylor representation of a characteristic function, we first prove the following result from which the Taylor representation follows with ease.
+
+lemma taylor_of_param_integral {f : ℝ → ℝ → ℂ} {R : ℝ → ℝ → ℂ} (n:ℕ) (c : ℕ → ℂ)
+  (hf : f = (fun θ:ℝ ↦ (fun x:ℝ ↦ ∑ k ∈ Icc 1 n, ((c k) * θ ^ k * x ^k) + θ ^ n * R θ x) ))
+  (R_bdd : ∃ C₁:ℝ, ∀ θ x : ℝ, ‖R θ x‖ ≤ C₁ * |x|^n)
+  (R_cts : Continuous (Function.uncurry R))
+  (R_zero : ∀ x:ℝ, R 0 x = 0)
+  (moments : Integrable (fun x ↦ |x|^n) μ) :
+  ∃ ε : ℝ → ℂ,
+  (fun θ:ℝ ↦ ∫ x, f θ x ∂μ) = (fun θ:ℝ ↦ ∑ k ∈ Icc 1 n, ((c k) * θ ^ k * ∫ x, x^k ∂μ) + θ^n * ε θ)
+  ∧ Continuous ε
+  ∧ ε 0 = 0 := by
+  obtain ⟨C₁,pC₁⟩ := R_bdd
+  let ε := fun θ:ℝ ↦ ∫ x, R θ x ∂μ
+  use ε
+  constructor
+  · ext θ
+    have : ε θ = ∫ x, R θ x ∂μ := rfl
+    rw [this]
+    have : ∑ k ∈ Icc 1 n, (c k * θ ^ k * ∫ (x : ℝ), x^k ∂μ) + (θ:ℝ) ^ n * ∫ (x : ℝ), R θ x ∂μ = ∫ x, ((∑ k ∈ Icc 1 n, (c k)* θ ^ k * x^k) + (θ:ℝ) ^ n * R θ x )∂μ := by
+      have terms_integrable : ∀ k ∈ Icc 1 n , Integrable (fun x:ℝ ↦ (c k) * θ ^ k * x ^ k) μ := by
+        intro k hk
+        apply Integrable.const_mul
+        have : AEStronglyMeasurable (fun x:ℝ ↦ (x:ℂ) ^ k) μ := by measurability
+        apply (integrable_norm_iff this).mp
+        have : (fun a:ℝ ↦ ‖(a:ℂ) ^ k‖) = fun a:ℝ ↦ |a|^k := by ext a; simp
+        rw [this]
+        exact integrable_norm_pow_of_le aestronglyMeasurable_id (Finset.mem_Icc.mp hk).2 moments
+      have sum_integrable : Integrable (fun x:ℝ ↦ ∑ k ∈ Icc 1 n , (c k) * θ ^ k * x ^ k) μ := integrable_finsetSum (Icc 1 n) terms_integrable
+      have remainder_integrable : Integrable (fun x:ℝ ↦ (θ:ℝ) ^ n * R θ x) μ := by
+        apply Integrable.const_mul
+        have bound_is_integrable : Integrable (fun x ↦ |C₁| * |x|^n) μ := by
+          apply Integrable.const_mul
+          exact moments
+        have Rθ_AEStronglymeasurable : AEStronglyMeasurable (R θ) μ := by
+          measurability
+        have ae_bdd : ∀ᵐ (a : ℝ) ∂μ, ‖R θ a‖ ≤ ‖|C₁| * |a| ^ n‖ := by
+          apply Filter.Eventually.of_forall
+          have bdd := pC₁ θ
+          simp
+          intro x
+          have : C₁ * |x|^n ≤ |C₁| * |x|^n := by
+            refine mul_le_mul_of_nonneg_right ?_ ?_
+            exact le_abs_self C₁
+            refine pow_nonneg ?_ n
+            exact abs_nonneg x
+          exact le_trans (bdd x) this
+        exact Integrable.mono bound_is_integrable Rθ_AEStronglymeasurable ae_bdd
+      rw [integral_add sum_integrable remainder_integrable]
+      rw [integral_const_mul (L := ℂ) (θ ^ n) (R θ)]
+      simp
+      rw [integral_finsetSum (Icc 1 n) terms_integrable]
+      have : Icc 1 n = Icc 1 n := rfl
+      apply Finset.sum_congr this
+      intro k hk
+      have : c k * (θ:ℝ) ^ k * (∫ (x : ℝ), x ^ k ∂μ : ℝ) = c k * ∫ x, θ ^ k * x ^k ∂μ := by
+        rw [integral_const_mul (μ := μ) (θ ^ k) (fun x:ℝ ↦ x^k)]
+        simp
+        rw [mul_assoc]
+      rw[this]
+      -- We have to do the following slightly annoying coercion to deal with the fact that the integral is a real number embedded into ℂ.
+      have : ∫ (x : ℝ), θ ^ k * x ^ k ∂μ = ∫ (x : ℝ), (θ:ℂ)^k * (x:ℂ)^k ∂μ := by
+        have : (fun x:ℝ ↦ (θ:ℂ)^k * (x:ℂ)^k)= (fun x:ℝ ↦ ↑ (θ ^ k * x ^ k)) := by
+          ext x
+          simp
+        rw [this]
+        rw [integral_complex_ofReal]
+      rw [this]
+      rw [← integral_const_mul (μ := μ) (c k) (fun x:ℝ ↦ θ ^ k * x^k)]
+      apply integral_congr_ae
+      apply Filter.Eventually.of_forall
+      intro x
+      field_simp
+    rw [this]
+    apply integral_congr_ae
+    apply Filter.Eventually.of_forall
+    intro x
+    rw[hf]
+  · constructor
+    · have : ε = fun θ:ℝ ↦ ∫ x, R θ x ∂μ := rfl
+      rw[this]
+      apply continuous_of_dominated
+      intro x
+      have : Continuous (R x) := Continuous.uncurry_left x R_cts
+      exact Continuous.aestronglyMeasurable this
+      have : ∀ (θ : ℝ), ∀ᵐ (x : ℝ) ∂μ, ‖R θ x‖ ≤ C₁ * |x|^n := by
+        intro θ
+        apply Filter.Eventually.of_forall
+        intro x
+        exact (pC₁ θ x)
+      exact this
+      apply Integrable.const_mul
+      exact moments
+      apply Filter.Eventually.of_forall
+      intro x
+      exact Continuous.uncurry_right x R_cts
+    · have : ε = fun θ:ℝ ↦ ∫ x, R θ x ∂μ := rfl
+      rw[this]
+      simp [R_zero]
+
+
 -- I want my money back, this lemma (in a more general form) should be in Mathlib!
 lemma contDiff_succ_of_iteratedDeriv {f : ℝ → ℂ} {n:ℕ} (hf : ContDiff ℝ n f) (hn : ContDiff ℝ 1 (iteratedDeriv n f)) : ContDiff ℝ (n+1) f := sorry
+
+lemma charFun_nth_der_formula (n:ℕ) (t:ℝ) (moments : Integrable (fun x ↦ |x|^n) μ) :
+  HasDerivAt (charFun μ) ((I:ℂ)^n * μ[fun x ↦ (x:ℝ)^n * cexp (t * x * I)]) t := sorry
 
 lemma charFun_nth_derivative (n:ℕ) (moments : Integrable (fun x ↦ |x|^n) μ) :
   ContDiff ℝ n (charFun μ) ∧ iteratedDeriv n (charFun μ) = fun t:ℝ ↦ (I:ℂ)^n * μ[fun x ↦ (x:ℝ)^n * cexp (t * x * I)] := by
@@ -68,13 +173,8 @@ lemma charFun_nth_derivative (n:ℕ) (moments : Integrable (fun x ↦ |x|^n) μ)
     | succ n ih =>
       have : Integrable (fun x ↦ |x|^n) μ := sorry
       have ih' := ih this
-      have deriv_hyp : ∀ t:ℝ, HasDerivAt (fun (s:ℝ) ↦ ∫ x, x ^ n * cexp (s * x * I) ∂μ) (∫ x, I * x ^ (n+1) * cexp (t * x * I) ∂μ) t := sorry
-      have succ_n_th_derivative_formula :
-        iteratedDeriv (n+1) (charFun μ) = fun t:ℝ ↦ (I:ℂ)^(n+1) * μ[fun x ↦ (x:ℝ)^(n+1) * cexp (t * x * I)] := by
-        rw [iteratedDeriv_succ, ih'.right]
-        ext t
+      have nth_deriv : ∀ t:ℝ, HasDerivAt (fun (s:ℝ) ↦ ∫ x, x ^ n * cexp (s * x * I) ∂μ) (∫ x, I * x ^ (n+1) * cexp (t * x * I) ∂μ) t := sorry
 
-        sorry
       constructor
       · apply contDiff_succ_of_iteratedDeriv ih'.left
         rw [ih'.right]
@@ -84,16 +184,30 @@ lemma charFun_nth_derivative (n:ℕ) (moments : Integrable (fun x ↦ |x|^n) μ)
         apply contDiff_one_iff_deriv.mpr
         constructor
         · intro t
-          exact HasDerivAt.differentiableAt (deriv_hyp t)
+          exact HasDerivAt.differentiableAt (nth_deriv t)
         · have : deriv (fun (t:ℝ) ↦ ∫ (x : ℝ), x ^ n * cexp (t * x * I) ∂μ) = (fun (t:ℝ) ↦ ∫ x, I * x ^ (n+1) * cexp (t * x * I) ∂μ) := by
             ext t
-            rw [← HasDerivAt.deriv (deriv_hyp t)]
+            rw [← HasDerivAt.deriv (nth_deriv t)]
           rw [this]
 
           -- use this lemma, make all of the hypotheses work.
           #check continuous_of_dominated
           sorry
-      · exact succ_n_th_derivative_formula
+      · have : iteratedDeriv (n+1) (charFun μ) = fun t:ℝ ↦ (I:ℂ)^(n+1) * μ[fun x ↦ (x:ℝ)^(n+1) * cexp (t * x * I)] := by
+          rw [iteratedDeriv_succ, ih'.right]
+          ext t
+          have der_formula := HasDerivAt.deriv (HasDerivAt.mul_const (nth_deriv t) (I ^ n))
+          have : (fun y:ℝ ↦ (∫ (x : ℝ), x ^ n * cexp (y * x * I) ∂μ) * I ^ n) = (fun y:ℝ ↦ I ^ n * (∫ (x : ℝ), x ^ n * cexp (y * x * I) ∂μ)) := by
+            ext t
+            grind
+          rw [this] at der_formula
+          rw [mul_comm] at der_formula
+
+          #check integral_const_mul (μ := μ) I (fun x:ℝ ↦ x ^ (n+1) * cexp (t * x * I))
+
+          -- use deriv_hyp, move this into the other part of the constructor
+          sorry
+        exact this
 
 lemma charFun_nth_derivative_zero (n:ℕ) (moments : Integrable (fun x ↦ |x|^n) μ) :
   iteratedDeriv n (charFun μ) 0 = (I:ℂ)^n * μ[fun x ↦ (x:ℝ)^n] := by
