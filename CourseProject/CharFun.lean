@@ -65,12 +65,16 @@ lemma taylor_of_param_integral {f : ℝ → ℝ → ℂ} {R : ℝ → ℝ → �
   ∧ Continuous ε
   ∧ ε 0 = 0 := by
   obtain ⟨C₁,pC₁⟩ := R_bdd
+  -- We use the obvious remainder function
   let ε := fun θ:ℝ ↦ ∫ x, R θ x ∂μ
   use ε
   constructor
-  · ext θ
+  · -- At first we prove that the remainder formula is valid.
+    ext θ
     have : ε θ = ∫ x, R θ x ∂μ := rfl
     rw [this]
+
+    -- We need to apply the linearity of integral; there are some technicalities because all of the relvant lemmas need integrability.
     have : ∑ k ∈ Icc 1 n, (c k * θ ^ k * ∫ (x : ℝ), x^k ∂μ) + (θ:ℝ) ^ n * ∫ (x : ℝ), R θ x ∂μ = ∫ x, ((∑ k ∈ Icc 1 n, (c k)* θ ^ k * x^k) + (θ:ℝ) ^ n * R θ x )∂μ := by
       have terms_integrable : ∀ k ∈ Icc 1 n , Integrable (fun x:ℝ ↦ (c k) * θ ^ k * x ^ k) μ := by
         intro k hk
@@ -104,15 +108,19 @@ lemma taylor_of_param_integral {f : ℝ → ℝ → ℂ} {R : ℝ → ℝ → �
       rw [integral_const_mul (L := ℂ) (θ ^ n) (R θ)]
       simp
       rw [integral_finsetSum (Icc 1 n) terms_integrable]
+
+      -- Both sides of the equality are expressed as a sum over k, by Finset.sum_congr we reduce into comparison of each term in the sums.
       have : Icc 1 n = Icc 1 n := rfl
       apply Finset.sum_congr this
+
       intro k hk
       have : c k * (θ:ℝ) ^ k * (∫ (x : ℝ), x ^ k ∂μ : ℝ) = c k * ∫ x, θ ^ k * x ^k ∂μ := by
         rw [integral_const_mul (μ := μ) (θ ^ k) (fun x:ℝ ↦ x^k)]
         simp
         rw [mul_assoc]
       rw[this]
-      -- We have to do the following slightly annoying coercion to deal with the fact that the integral is a real number embedded into ℂ.
+      /- Next we will use linearity of intergal and integral_congr_ae to reduce to the claim that the integrands agree.
+         We have to do the following slightly annoying coercion to deal with the fact that the integral is a real number embedded into ℂ. -/
       have : ∫ (x : ℝ), θ ^ k * x ^ k ∂μ = ∫ (x : ℝ), (θ:ℂ)^k * (x:ℂ)^k ∂μ := by
         have : (fun x:ℝ ↦ (θ:ℂ)^k * (x:ℂ)^k)= (fun x:ℝ ↦ ↑ (θ ^ k * x ^ k)) := by
           ext x
@@ -121,16 +129,21 @@ lemma taylor_of_param_integral {f : ℝ → ℝ → ℂ} {R : ℝ → ℝ → �
         rw [integral_complex_ofReal]
       rw [this]
       rw [← integral_const_mul (μ := μ) (c k) (fun x:ℝ ↦ θ ^ k * x^k)]
+
       apply integral_congr_ae
       apply Filter.Eventually.of_forall
+
+      -- Now field_simp does the trick.
       intro x
       field_simp
+
     rw [this]
     apply integral_congr_ae
     apply Filter.Eventually.of_forall
     intro x
     rw[hf]
-  · constructor
+  · -- Now we prove continuity and the fact that ε 0 = 0.
+    constructor
     · have : ε = fun θ:ℝ ↦ ∫ x, R θ x ∂μ := rfl
       rw[this]
       apply continuous_of_dominated
@@ -153,11 +166,9 @@ lemma taylor_of_param_integral {f : ℝ → ℝ → ℂ} {R : ℝ → ℝ → �
       simp [R_zero]
 
 
+
 -- I want my money back, this lemma (in a more general form) should be in Mathlib!
 lemma contDiff_succ_of_iteratedDeriv {f : ℝ → ℂ} {n:ℕ} (hf : ContDiff ℝ n f) (hn : ContDiff ℝ 1 (iteratedDeriv n f)) : ContDiff ℝ (n+1) f := sorry
-
-lemma charFun_nth_der_formula (n:ℕ) (t:ℝ) (moments : Integrable (fun x ↦ |x|^n) μ) :
-  HasDerivAt (charFun μ) ((I:ℂ)^n * μ[fun x ↦ (x:ℝ)^n * cexp (t * x * I)]) t := sorry
 
 lemma charFun_nth_derivative (n:ℕ) (moments : Integrable (fun x ↦ |x|^n) μ) :
   ContDiff ℝ n (charFun μ) ∧ iteratedDeriv n (charFun μ) = fun t:ℝ ↦ (I:ℂ)^n * μ[fun x ↦ (x:ℝ)^n * cexp (t * x * I)] := by
