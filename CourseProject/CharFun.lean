@@ -53,13 +53,13 @@ lemma charFun_transformation (a b : ℝ) :
 
 -- To prove our Taylor representation of a characteristic function, we first prove the following result from which the Taylor representation follows with ease.
 lemma taylor_of_param_integral {f : ℝ → ℝ → ℂ} {R : ℝ → ℝ → ℂ} (n:ℕ) (c : ℕ → ℂ)
-  (hf : f = (fun θ:ℝ ↦ (fun x:ℝ ↦ ∑ k ∈ Icc 1 n, ((c k) * θ ^ k * x ^k) + θ ^ n * R θ x) ))
+  (hf : f = (fun θ:ℝ ↦ (fun x:ℝ ↦ ∑ k ∈ Icc 0 n, ((c k) * θ ^ k * x ^k) + θ ^ n * R θ x) ))
   (R_bdd : ∃ C₁:ℝ, ∀ θ x : ℝ, ‖R θ x‖ ≤ C₁ * |x|^n)
   (R_cts : Continuous (Function.uncurry R))
   (R_zero : ∀ x:ℝ, R 0 x = 0)
   (moments : Integrable (fun x ↦ |x|^n) μ) :
   ∃ ε : ℝ → ℂ,
-  (fun θ:ℝ ↦ ∫ x, f θ x ∂μ) = (fun θ:ℝ ↦ ∑ k ∈ Icc 1 n, ((c k) * θ ^ k * ∫ x, x^k ∂μ) + θ^n * ε θ)
+  (fun θ:ℝ ↦ ∫ x, f θ x ∂μ) = (fun θ:ℝ ↦ ∑ k ∈ Icc 0 n, ((c k) * θ ^ k * ∫ x, x^k ∂μ) + θ^n * ε θ)
   ∧ Continuous ε
   ∧ ε 0 = 0 := by
   obtain ⟨C₁,pC₁⟩ := R_bdd
@@ -69,12 +69,13 @@ lemma taylor_of_param_integral {f : ℝ → ℝ → ℂ} {R : ℝ → ℝ → �
   constructor
   · -- At first we prove that the remainder formula is valid.
     ext θ
+
     have : ε θ = ∫ x, R θ x ∂μ := rfl
     rw [this]
 
     -- We need to apply the linearity of integral; there are some technicalities because all of the relvant lemmas need integrability.
-    have : ∑ k ∈ Icc 1 n, (c k * θ ^ k * ∫ (x : ℝ), x^k ∂μ) + (θ:ℝ) ^ n * ∫ (x : ℝ), R θ x ∂μ = ∫ x, ((∑ k ∈ Icc 1 n, (c k)* θ ^ k * x^k) + (θ:ℝ) ^ n * R θ x )∂μ := by
-      have terms_integrable : ∀ k ∈ Icc 1 n , Integrable (fun x:ℝ ↦ (c k) * θ ^ k * x ^ k) μ := by
+    have : ∑ k ∈ Icc 0 n, (c k * θ ^ k * ∫ (x : ℝ), x^k ∂μ) + (θ:ℝ) ^ n * ∫ (x : ℝ), R θ x ∂μ = ∫ x, ((∑ k ∈ Icc 0 n, (c k)* θ ^ k * x^k) + (θ:ℝ) ^ n * R θ x )∂μ := by
+      have terms_integrable : ∀ k ∈ Icc 0 n , Integrable (fun x:ℝ ↦ (c k) * θ ^ k * x ^ k) μ := by
         intro k hk
         apply Integrable.const_mul
         have : AEStronglyMeasurable (fun x:ℝ ↦ (x:ℂ) ^ k) μ := by measurability
@@ -82,7 +83,7 @@ lemma taylor_of_param_integral {f : ℝ → ℝ → ℂ} {R : ℝ → ℝ → �
         have : (fun a:ℝ ↦ ‖(a:ℂ) ^ k‖) = fun a:ℝ ↦ |a|^k := by ext a; simp
         rw [this]
         exact integrable_norm_pow_of_le aestronglyMeasurable_id (Finset.mem_Icc.mp hk).2 moments
-      have sum_integrable : Integrable (fun x:ℝ ↦ ∑ k ∈ Icc 1 n , (c k) * θ ^ k * x ^ k) μ := integrable_finsetSum (Icc 1 n) terms_integrable
+      have sum_integrable : Integrable (fun x:ℝ ↦ ∑ k ∈ Icc 0 n , (c k) * θ ^ k * x ^ k) μ := integrable_finsetSum (Icc 0 n) terms_integrable
       have remainder_integrable : Integrable (fun x:ℝ ↦ (θ:ℝ) ^ n * R θ x) μ := by
         apply Integrable.const_mul
         have bound_is_integrable : Integrable (fun x ↦ |C₁| * |x|^n) μ := by
@@ -105,10 +106,10 @@ lemma taylor_of_param_integral {f : ℝ → ℝ → ℂ} {R : ℝ → ℝ → �
       rw [integral_add sum_integrable remainder_integrable]
       rw [integral_const_mul (L := ℂ) (θ ^ n) (R θ)]
       simp
-      rw [integral_finsetSum (Icc 1 n) terms_integrable]
+      rw [integral_finsetSum (Icc 0 n) terms_integrable]
 
       -- Both sides of the equality are expressed as a sum over k, by Finset.sum_congr we reduce into comparison of each term in the sums.
-      have : Icc 1 n = Icc 1 n := rfl
+      have : Icc 0 n = Icc 0 n := rfl
       apply Finset.sum_congr this
 
       intro k hk
@@ -165,10 +166,51 @@ lemma taylor_of_param_integral {f : ℝ → ℝ → ℂ} {R : ℝ → ℝ → �
 
 -- now we prove the following nice representation for the map eⁱᵗ.
 lemma exp_it_taylor : (fun x:ℝ ↦ (fun θ:ℝ ↦ cexp (inner ℝ x θ * I) ))
-  = fun x:ℝ ↦ (fun θ:ℝ ↦ 1 + I * x * θ - (1/2) * θ ^ 2 * ∫ u in 0..x, (∫ v in 0..u,  cexp (I*θ*v) - 1 ∂(volume : Measure ℝ) ) ∂(volume : Measure ℝ)) := by
+  = fun x:ℝ ↦ (fun θ:ℝ ↦ 1 + I * x * θ - (1/2) * θ ^ 2 * x ^2
+          - θ ^2 * ∫ u in 0..x, (∫ v in 0..u,  cexp (I*θ*v) - 1 ∂volume) ∂volume) := by
     ext x θ
+    #check integral_exp_mul_complex
     #check taylor_integral_remainder
     sorry
+
+-- Now we obtain the Taylor expansion of a characteristic function for a measure with two moments.
+
+lemma snd_taylor_charFun (snd_moment : Integrable (fun x:ℝ ↦ |x|^2) μ) :
+  ∃ ε : ℝ → ℂ, Continuous ε ∧ ε 0 = 0
+  ∧ charFun μ = fun (t:ℝ) ↦ 1 + I * ∫ x, x ∂μ - (1/2) * ∫ x, x^2 ∂μ + t^2 * ε t := by
+    let R := fun x:ℝ ↦ (fun θ:ℝ ↦ ∫ u in 0..x, (∫ v in 0..u,  cexp (I*θ*v) - 1 ∂volume) ∂volume)
+    have R_bdd : ∃ C₁:ℝ, ∀ θ x : ℝ, ‖R θ x‖ ≤ C₁ * |x|^2 := sorry
+    have R_cts : Continuous (Function.uncurry R) := by fun_prop
+    have R_zero : ∀ x:ℝ, R 0 x = 0 := by
+      intro x
+      sorry
+    let c := fun n:ℕ ↦ (2 - n) ⊔ 0 + I * ((n-1) ⊓ 1) * ((3-n) ⊔ 0) -- c 1 = 1, c 2 = I, c n = 0 if n ≥ 3.
+
+    have hexp : (fun x ↦ (fun θ:ℝ ↦ cexp (inner ℝ x θ * I)))
+      = (fun x:ℝ ↦ (fun θ:ℝ ↦ 1 + ∑ k ∈ Icc 1 2, ((c k) * θ ^ k * x ^k) - θ ^ 2 * R θ x)) := by
+      rw [exp_it_taylor]
+      ext x θ
+
+      simp
+      -- lemmas found with rw? that allow us to write the sum as (a₁ + a₂ instead of ∑ k ∈ Icc 1 2, aₖ)
+      rw [sum_Icc_succ_top (Nat.le.step Nat.le.refl) fun k ↦ c k * ↑θ ^ k * ↑x ^ k]
+      expose_names; rw [sum_Icc_succ_top Nat.le.refl fun k ↦ c k * ↑θ ^ k * ↑x ^ k]
+      simp
+
+      have : c 1 = (2 - 1:ℕ) ⊔ 0 + I * (((1:ℕ)-1) ⊓ 1) * ((3-(1:ℕ)) ⊔ 0) := by rfl
+      rw [this]
+      have : (2 - 1:ℕ) ⊔ 0 + I * (((1:ℕ)-1) ⊓ 1) * ((3-(1:ℕ)) ⊔ 0) = 1 := by norm_num
+      rw [this]
+      have : c 2 = (2 - 2:ℕ) ⊔ 0 + I * (((2:ℕ)-1) ⊓ 1) * ((3-(2:ℕ)) ⊔ 0) := by rfl
+      rw [this]
+      have : (2 - 2:ℕ) ⊔ 0 + I * (((2:ℕ)-1) ⊓ 1) * ((3-(2:ℕ)) ⊔ 0) = I := by norm_num
+      rw [this]
+      simp
+      sorry
+
+    sorry
+
+
 
 /- The next lemma is used in the proof of the CLT, which we phrased in terms of random variables rather than measures.
    Thus we prove it for the law of independent random variables. The result is essentially a restatement of the lemma
