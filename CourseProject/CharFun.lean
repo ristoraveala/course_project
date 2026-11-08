@@ -51,9 +51,7 @@ lemma charFun_transformation (a b : ℝ) :
   apply congrArg cexp
   grind
 
-
 -- To prove our Taylor representation of a characteristic function, we first prove the following result from which the Taylor representation follows with ease.
-
 lemma taylor_of_param_integral {f : ℝ → ℝ → ℂ} {R : ℝ → ℝ → ℂ} (n:ℕ) (c : ℕ → ℂ)
   (hf : f = (fun θ:ℝ ↦ (fun x:ℝ ↦ ∑ k ∈ Icc 1 n, ((c k) * θ ^ k * x ^k) + θ ^ n * R θ x) ))
   (R_bdd : ∃ C₁:ℝ, ∀ θ x : ℝ, ‖R θ x‖ ≤ C₁ * |x|^n)
@@ -165,66 +163,26 @@ lemma taylor_of_param_integral {f : ℝ → ℝ → ℂ} {R : ℝ → ℝ → �
       rw[this]
       simp [R_zero]
 
+-- now we prove the following nice representation for the map eⁱᵗ.
+lemma exp_it_taylor : (fun x:ℝ ↦ (fun θ:ℝ ↦ cexp (inner ℝ x θ * I) ))
+  = fun x:ℝ ↦ (fun θ:ℝ ↦ 1 + I * x * θ - (1/2) * θ ^ 2 * ∫ u in 0..x, (∫ v in 0..u,  cexp (I*θ*v) - 1 ∂(volume : Measure ℝ) ) ∂(volume : Measure ℝ)) := by
+    ext x θ
+    #check taylor_integral_remainder
+    sorry
 
+/- The next lemma is used in the proof of the CLT, which we phrased in terms of random variables rather than measures.
+   Thus we prove it for the law of independent random variables. The result is essentially a restatement of the lemma
+   iIndepFun.charFun_map_fun_sum_eq_prod, but we just state it in a slightly more convenient form. -/
 
--- I want my money back, this lemma (in a more general form) should be in Mathlib!
-lemma contDiff_succ_of_iteratedDeriv {f : ℝ → ℂ} {n:ℕ} (hf : ContDiff ℝ n f) (hn : ContDiff ℝ 1 (iteratedDeriv n f)) : ContDiff ℝ (n+1) f := sorry
+lemma indep_sum_charFun {Ω : Type*} [MeasureSpace Ω] [IsProbabilityMeasure (ℙ : Measure Ω)] {Y : ℕ → Ω → ℝ}
+  (measurable : ∀ (j:ℕ), AEMeasurable (Y j)) (indep : iIndepFun Y ℙ) (n : ℕ) :
+    charFun (map (fun ω ↦ ∑ k : Icc 1 n, Y k ω) ℙ) = ∏ k : Icc 1 n, charFun (map (Y k) ℙ) := by
+    have measurable' : ∀ j : Icc 1 n,  AEMeasurable (Y j) := by
+      intro j
+      exact measurable j
+    have indep' : iIndepFun (fun i:Icc 1 n ↦ Y i) ℙ := iIndepFun_iff_finset.mp indep (Icc 1 n)
+    exact iIndepFun.charFun_map_fun_sum_eq_prod measurable' indep'
 
-lemma charFun_nth_derivative (n:ℕ) (moments : Integrable (fun x ↦ |x|^n) μ) :
-  ContDiff ℝ n (charFun μ) ∧ iteratedDeriv n (charFun μ) = fun t:ℝ ↦ (I:ℂ)^n * μ[fun x ↦ (x:ℝ)^n * cexp (t * x * I)] := by
-    induction n with
-    | zero => -- use charFun_cts and simp
-      constructor
-      · apply contDiff_zero.mpr
-        exact charFun_cts μ
-      · rw [iteratedDeriv_zero]
-        ext t
-        rw [charFun]
-        simp
-    | succ n ih =>
-      have : Integrable (fun x ↦ |x|^n) μ := sorry
-      have ih' := ih this
-      have nth_deriv : ∀ t:ℝ, HasDerivAt (fun (s:ℝ) ↦ ∫ x, x ^ n * cexp (s * x * I) ∂μ) (∫ x, I * x ^ (n+1) * cexp (t * x * I) ∂μ) t := sorry
-
-      constructor
-      · apply contDiff_succ_of_iteratedDeriv ih'.left
-        rw [ih'.right]
-        simp
-        apply contDiff_const.mul
-
-        apply contDiff_one_iff_deriv.mpr
-        constructor
-        · intro t
-          exact HasDerivAt.differentiableAt (nth_deriv t)
-        · have : deriv (fun (t:ℝ) ↦ ∫ (x : ℝ), x ^ n * cexp (t * x * I) ∂μ) = (fun (t:ℝ) ↦ ∫ x, I * x ^ (n+1) * cexp (t * x * I) ∂μ) := by
-            ext t
-            rw [← HasDerivAt.deriv (nth_deriv t)]
-          rw [this]
-
-          -- use this lemma, make all of the hypotheses work.
-          #check continuous_of_dominated
-          sorry
-      · have : iteratedDeriv (n+1) (charFun μ) = fun t:ℝ ↦ (I:ℂ)^(n+1) * μ[fun x ↦ (x:ℝ)^(n+1) * cexp (t * x * I)] := by
-          rw [iteratedDeriv_succ, ih'.right]
-          ext t
-          have der_formula := HasDerivAt.deriv (HasDerivAt.mul_const (nth_deriv t) (I ^ n))
-          have : (fun y:ℝ ↦ (∫ (x : ℝ), x ^ n * cexp (y * x * I) ∂μ) * I ^ n) = (fun y:ℝ ↦ I ^ n * (∫ (x : ℝ), x ^ n * cexp (y * x * I) ∂μ)) := by
-            ext t
-            grind
-          rw [this] at der_formula
-          rw [mul_comm] at der_formula
-
-          #check integral_const_mul (μ := μ) I (fun x:ℝ ↦ x ^ (n+1) * cexp (t * x * I))
-
-          -- use deriv_hyp, move this into the other part of the constructor
-          sorry
-        exact this
-
-lemma charFun_nth_derivative_zero (n:ℕ) (moments : Integrable (fun x ↦ |x|^n) μ) :
-  iteratedDeriv n (charFun μ) 0 = (I:ℂ)^n * μ[fun x ↦ (x:ℝ)^n] := by
-  have := (charFun_nth_derivative μ n moments).right
-  rw [congr_fun this 0]
-  simp
 
 /- TODO: add Taylor expansion (easy consequence of the previous result), factorisation of a sum
    of independent RV's, and an application that gives the convergence to Gaussian characteristic

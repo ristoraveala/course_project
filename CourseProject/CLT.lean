@@ -13,6 +13,6 @@ variable {X : ℕ → Ω → ℝ} (meas : ∀ n, Measurable (X n))
 
 include iid snd_moments in
 theorem CLT : TendstoInDistribution
-  (fun (n:ℕ) ↦ fun ω ↦ (1/√(n * variance (X 1) ℙ)) * (∑ i ∈ Finset.Icc 1 n, (X i ω - ℙ[X i])))
+  (fun (n:ℕ) ↦ fun ω ↦ (1/√(n * variance (X 1) ℙ)) * (∑ i : Finset.Icc 1 n, (X i ω - ℙ[X i])))
     atTop id (fun n ↦ ℙ) (gaussianReal 0 1) :=
   sorry
