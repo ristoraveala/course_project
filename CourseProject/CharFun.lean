@@ -165,10 +165,10 @@ lemma taylor_of_param_integral {f : ℝ → ℝ → ℂ} {R : ℝ → ℝ → �
       simp [R_zero]
 
 -- now we prove the following nice representation for the map eⁱᵗ.
-lemma exp_it_taylor : (fun x:ℝ ↦ (fun θ:ℝ ↦ cexp (inner ℝ x θ * I) ))
-  = fun x:ℝ ↦ (fun θ:ℝ ↦ 1 + I * x * θ - (1/2) * θ ^ 2 * x ^2
+lemma exp_it_taylor : (fun θ:ℝ ↦ (fun x:ℝ ↦ cexp (inner ℝ θ x * I) ))
+  = fun θ:ℝ ↦ (fun x:ℝ ↦ 1 + I * x * θ - (1/2) * θ ^ 2 * x ^2
           - θ ^2 * ∫ u in 0..x, (∫ v in 0..u,  cexp (I*θ*v) - 1 ∂volume) ∂volume) := by
-    ext x θ
+    ext θ x
     #check integral_exp_mul_complex
     #check taylor_integral_remainder
     sorry
@@ -177,38 +177,70 @@ lemma exp_it_taylor : (fun x:ℝ ↦ (fun θ:ℝ ↦ cexp (inner ℝ x θ * I) )
 
 lemma snd_taylor_charFun (snd_moment : Integrable (fun x:ℝ ↦ |x|^2) μ) :
   ∃ ε : ℝ → ℂ, Continuous ε ∧ ε 0 = 0
-  ∧ charFun μ = fun (t:ℝ) ↦ 1 + I * ∫ x, x ∂μ - (1/2) * ∫ x, x^2 ∂μ + t^2 * ε t := by
-    let R := fun x:ℝ ↦ (fun θ:ℝ ↦ ∫ u in 0..x, (∫ v in 0..u,  cexp (I*θ*v) - 1 ∂volume) ∂volume)
+  ∧ charFun μ = fun (t:ℝ) ↦ 1 + I * t * ∫ x, x ∂μ - (1/2) * t ^2 * ∫ x, x^2 ∂μ + t^2 * ε t := by
+    let R := fun θ:ℝ ↦ (fun x:ℝ ↦ - ∫ u in 0..x, (∫ v in 0..u,  cexp (I*θ*v) - 1 ∂volume) ∂volume)
     have R_bdd : ∃ C₁:ℝ, ∀ θ x : ℝ, ‖R θ x‖ ≤ C₁ * |x|^2 := sorry
     have R_cts : Continuous (Function.uncurry R) := by fun_prop
     have R_zero : ∀ x:ℝ, R 0 x = 0 := by
       intro x
       sorry
-    let c := fun n:ℕ ↦ (2 - n) ⊔ 0 + I * ((n-1) ⊓ 1) * ((3-n) ⊔ 0) -- c 1 = 1, c 2 = I, c n = 0 if n ≥ 3.
 
-    have hexp : (fun x ↦ (fun θ:ℝ ↦ cexp (inner ℝ x θ * I)))
-      = (fun x:ℝ ↦ (fun θ:ℝ ↦ 1 + ∑ k ∈ Icc 1 2, ((c k) * θ ^ k * x ^k) - θ ^ 2 * R θ x)) := by
-      rw [exp_it_taylor]
-      ext x θ
-
+    let c := fun n:ℕ ↦ (1 - n) ⊔ 0 + n * ((2-n) ⊔ 0) * I + ((n-1) ⊔ 0) * ((3-n) ⊔ 0) * (- 1/2) -- c 0 = 1, c 1 = I, c 2 = - 1/2, c n = 0 if n ≥ 3.
+    have c0 : c 0 = 1 := by
+      rw [show c 0 = (fun n:ℕ ↦ (1 - n) ⊔ 0 + n * ((2-n) ⊔ 0) * I + ((n-1) ⊔ 0) * ((3-n) ⊔ 0) * (- 1/2)) 0 by rfl]
       simp
-      -- lemmas found with rw? that allow us to write the sum as (a₁ + a₂ instead of ∑ k ∈ Icc 1 2, aₖ)
-      rw [sum_Icc_succ_top (Nat.le.step Nat.le.refl) fun k ↦ c k * ↑θ ^ k * ↑x ^ k]
-      expose_names; rw [sum_Icc_succ_top Nat.le.refl fun k ↦ c k * ↑θ ^ k * ↑x ^ k]
+    have c1 : c 1 = I := by
+      rw [show c 1 = (fun n:ℕ ↦ (1 - n) ⊔ 0 + n * ((2-n) ⊔ 0) * I + ((n-1) ⊔ 0) * ((3-n) ⊔ 0) * (- 1/2)) 1 by rfl]
       simp
-
-      have : c 1 = (2 - 1:ℕ) ⊔ 0 + I * (((1:ℕ)-1) ⊓ 1) * ((3-(1:ℕ)) ⊔ 0) := by rfl
-      rw [this]
-      have : (2 - 1:ℕ) ⊔ 0 + I * (((1:ℕ)-1) ⊓ 1) * ((3-(1:ℕ)) ⊔ 0) = 1 := by norm_num
-      rw [this]
-      have : c 2 = (2 - 2:ℕ) ⊔ 0 + I * (((2:ℕ)-1) ⊓ 1) * ((3-(2:ℕ)) ⊔ 0) := by rfl
-      rw [this]
-      have : (2 - 2:ℕ) ⊔ 0 + I * (((2:ℕ)-1) ⊓ 1) * ((3-(2:ℕ)) ⊔ 0) = I := by norm_num
-      rw [this]
+    have c2 : c 2 = - (1/2) := by
+      rw [show c 2 = (fun n:ℕ ↦ (1 - n) ⊔ 0 + n * ((2-n) ⊔ 0) * I + ((n-1) ⊔ 0) * ((3-n) ⊔ 0) * (- 1/2)) 2 by rfl]
       simp
-      sorry
+      field_simp
 
-    sorry
+    let f := (fun θ:ℝ ↦ (fun x:ℝ ↦ cexp (inner ℝ θ x * I)))
+    have hf : f = (fun θ:ℝ ↦ (fun x:ℝ ↦ ∑ k ∈ Icc 0 2, ((c k) * θ ^ k * x ^k) + θ ^ 2 * R θ x)) := by
+      rw [show f = (fun θ:ℝ ↦ (fun x:ℝ ↦ cexp (inner ℝ θ x * I))) by rfl, exp_it_taylor]
+      ext θ x
+      rw [sum_Icc_succ_top (Nat.le.step (Nat.le.step Nat.le.refl)) fun k ↦ c k * ↑θ ^ k * ↑x ^ k]
+      simp
+      rw [sum_Icc_succ_top (Nat.le.step Nat.le.refl) fun x_1 ↦ c x_1 * ↑θ ^ x_1 * ↑x ^ x_1]
+      simp
+      rw [c0,c1,c2]
+      rw [show R = fun θ:ℝ ↦ (fun x:ℝ ↦ - ∫ u in 0..x, (∫ v in 0..u,  cexp (I*θ*v) - 1 ∂volume) ∂volume) by rfl]
+      simp
+      grind
+
+    have tf := (taylor_of_param_integral (f := f) (R := R) μ 2 c hf R_bdd R_cts R_zero) snd_moment
+    obtain ⟨ε,pε⟩ := tf
+    use ε
+
+    constructor
+    · exact pε.right.left
+    · constructor
+      · exact pε.right.right
+      · have ε_formula := (pε).left
+        have : charFun μ = (fun θ ↦ ∫ (x : ℝ), f θ x ∂μ) := by
+          ext θ
+          rw [charFun, show f=(fun θ:ℝ ↦ (fun x:ℝ ↦ cexp (inner ℝ θ x * I))) by rfl]
+          simp
+          apply integral_congr_ae
+          apply Filter.Eventually.of_forall
+          intro x
+          field_simp
+        rw [← this] at ε_formula
+        have : (fun θ:ℝ ↦ ∑ k ∈ Icc 0 2, c k * ↑θ ^ k * ↑(∫ (x : ℝ), x ^ k ∂μ) + ↑θ ^ 2 * ε θ)
+          = (fun θ:ℝ ↦ 1 + I * θ * ∫ x, x ∂μ - (1/2) * θ ^2 * ∫ x, x^2 ∂μ + θ ^2 * ε θ) := by
+          ext θ
+          simp
+          rw [sum_Icc_succ_top (Nat.le.step (Nat.le.step Nat.le.refl)) fun k ↦ c k * ↑θ ^ k * ↑(∫ (x : ℝ), x ^ k ∂μ)]
+          simp
+          rw [sum_Icc_succ_top (Nat.le.step Nat.le.refl) fun x ↦ c x * ↑θ ^ x * ↑(∫ (x_1 : ℝ), x_1 ^ x ∂μ)]
+          simp
+          rw [c0,c1,c2]
+          simp
+          grind
+        rw [this] at ε_formula
+        exact ε_formula
 
 
 
