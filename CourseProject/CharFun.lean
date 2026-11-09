@@ -162,71 +162,72 @@ lemma snd_taylor_charFun (snd_moment : Integrable (fun x:ℝ ↦ |x|^2) μ) :
   ∃ ε : ℝ → ℂ, Continuous ε ∧ ε 0 = 0
   ∧ charFun μ = fun (t:ℝ) ↦ 1 + I * t * ∫ x, x ∂μ - (1/2) * t ^2 * ∫ x, x^2 ∂μ + t^2 * ε t := by
 
-    set R := fun θ:ℝ ↦ (fun x:ℝ ↦ - ∫ u in 0..x, (∫ v in 0..u,  cexp (I*θ*v) - 1 ∂volume) ∂volume) with R_def
+  set R := fun θ:ℝ ↦ (fun x:ℝ ↦ - ∫ u in 0..x, (∫ v in 0..u,  cexp (I*θ*v) - 1 ∂volume) ∂volume) with R_def
 
-    have R_bdd : ∃ C₁:ℝ, ∀ θ x : ℝ, ‖R θ x‖ ≤ |C₁| * |x|^2 := by
-      use 2
-      intro θ x
-      simp [R_def]
-      -- We first prove the inner bound
-      have : ∀ u ∈ Set.uIoc 0 x, ‖∫ (v : ℝ) in 0..u, cexp (I * ↑θ * ↑v) - 1‖ ≤ 2 * |x| := by
-        intro u hu
-        have : ∀ v ∈ Set.uIoc 0 u, ‖cexp (I * ↑θ * v) - 1‖ ≤ 2 := by
-          intro v hv
-          apply le_trans (norm_sub_le_norm_sub_add_norm_sub (cexp (I * ↑θ * v)) 0 1)
-          simp
-          have : ‖cexp (I * θ * v)‖ = 1 := by
-            rw [show cexp (I * θ * v) = cexp (I * ↑(θ * v)) by simp; rw [mul_assoc]]
-            exact norm_exp_I_mul_ofReal (θ * v)
-          rw[this]
-          grind
-        have := intervalIntegral.norm_integral_le_of_norm_le_const this
-        apply le_trans this
+  have R_bdd : ∃ C₁:ℝ, ∀ θ x : ℝ, ‖R θ x‖ ≤ |C₁| * |x|^2 := by
+    use 2
+    intro θ x
+    simp [R_def]
+    -- We first prove the inner bound
+    have : ∀ u ∈ Set.uIoc 0 x, ‖∫ (v : ℝ) in 0..u, cexp (I * ↑θ * ↑v) - 1‖ ≤ 2 * |x| := by
+      intro u hu
+      have : ∀ v ∈ Set.uIoc 0 u, ‖cexp (I * ↑θ * v) - 1‖ ≤ 2 := by
+        intro v hv
+        apply le_trans (norm_sub_le_norm_sub_add_norm_sub (cexp (I * ↑θ * v)) 0 1)
+        simp
+        have : ‖cexp (I * θ * v)‖ = 1 := by
+          rw [show cexp (I * θ * v) = cexp (I * ↑(θ * v)) by simp; rw [mul_assoc]]
+          exact norm_exp_I_mul_ofReal (θ * v)
+        rw[this]
         grind
-
-      have integral_bd := intervalIntegral.norm_integral_le_of_norm_le_const this
-
-      simp [show 2 * |x| * |x| = 2 * x^2 by grind] at integral_bd
-      exact integral_bd
-    have R_cts : Continuous (Function.uncurry R) := by fun_prop
-    have R_zero : ∀ x:ℝ, R 0 x = 0 := by
-      intro x
-      rw [R_def]
-      simp
-
-    set c := fun n:ℕ ↦ (1 - n) ⊔ 0 + n * ((2-n) ⊔ 0) * I + ((n-1) ⊔ 0) * ((3-n) ⊔ 0) * (- 1/2) with c_def
-
-    set f := (fun θ:ℝ ↦ (fun x:ℝ ↦ cexp (inner ℝ θ x * I))) with f_def
-    have hf : f = (fun θ:ℝ ↦ (fun x:ℝ ↦ ∑ k ∈ Icc 0 2, ((c k) * θ ^ k * x ^k) + θ ^ 2 * R θ x)) := by
-      rw [f_def, exp_it_taylor]
-      ext θ x
-      simp [sum_Icc_succ_top,c_def, R_def]
+      have := intervalIntegral.norm_integral_le_of_norm_le_const this
+      apply le_trans this
       grind
 
-    have tf := (taylor_of_param_integral (f := f) (R := R) μ 2 c hf R_bdd R_cts R_zero) snd_moment
-    obtain ⟨ε,pε⟩ := tf
-    use ε
+    have integral_bd := intervalIntegral.norm_integral_le_of_norm_le_const this
 
-    constructor
-    · exact pε.right.left
-    · constructor
-      · exact pε.right.right
-      · have ε_formula := (pε).left
-        have : charFun μ = (fun θ ↦ ∫ (x : ℝ), f θ x ∂μ) := by
-          ext θ
-          simp [charFun,f_def]
-          apply integral_congr_ae
-          apply Filter.Eventually.of_forall
-          intro x
-          field_simp
-        rw [← this] at ε_formula
-        have : (fun θ:ℝ ↦ ∑ k ∈ Icc 0 2, c k * ↑θ ^ k * ↑(∫ (x : ℝ), x ^ k ∂μ) + ↑θ ^ 2 * ε θ)
-          = (fun θ:ℝ ↦ 1 + I * θ * ∫ x, x ∂μ - (1/2) * θ ^2 * ∫ x, x^2 ∂μ + θ ^2 * ε θ) := by
-          ext θ
-          simp [sum_Icc_succ_top, c_def]
-          grind
-        rw [this] at ε_formula
-        exact ε_formula
+    simp [show 2 * |x| * |x| = 2 * x^2 by grind] at integral_bd
+    exact integral_bd
+  have R_cts : Continuous (Function.uncurry R) := by fun_prop
+  have R_zero : ∀ x:ℝ, R 0 x = 0 := by
+    intro x
+    rw [R_def]
+    simp
+
+  -- c 0 = 1, c 1 = I, c 2 = -1/2, and c n = 0 otherwise
+  set c := fun n:ℕ ↦ (1 - n) ⊔ 0 + n * ((2-n) ⊔ 0) * I + ((n-1) ⊔ 0) * ((3-n) ⊔ 0) * (- 1/2) with c_def
+
+  set f := (fun θ:ℝ ↦ (fun x:ℝ ↦ cexp (inner ℝ θ x * I))) with f_def
+  have hf : f = (fun θ:ℝ ↦ (fun x:ℝ ↦ ∑ k ∈ Icc 0 2, ((c k) * θ ^ k * x ^k) + θ ^ 2 * R θ x)) := by
+    rw [f_def, exp_it_taylor]
+    ext θ x
+    simp [sum_Icc_succ_top,c_def, R_def]
+    grind
+
+  have tf := (taylor_of_param_integral (f := f) (R := R) μ 2 c hf R_bdd R_cts R_zero) snd_moment
+  obtain ⟨ε,pε⟩ := tf
+  use ε
+
+  constructor
+  · exact pε.right.left
+  · constructor
+    · exact pε.right.right
+    · have ε_formula := (pε).left
+      have : charFun μ = (fun θ ↦ ∫ (x : ℝ), f θ x ∂μ) := by
+        ext θ
+        simp [charFun,f_def]
+        apply integral_congr_ae
+        apply Filter.Eventually.of_forall
+        intro x
+        field_simp
+      rw [← this] at ε_formula
+      have : (fun θ:ℝ ↦ ∑ k ∈ Icc 0 2, c k * ↑θ ^ k * ↑(∫ (x : ℝ), x ^ k ∂μ) + ↑θ ^ 2 * ε θ)
+        = (fun θ:ℝ ↦ 1 + I * θ * ∫ x, x ∂μ - (1/2) * θ ^2 * ∫ x, x^2 ∂μ + θ ^2 * ε θ) := by
+        ext θ
+        simp [sum_Icc_succ_top, c_def]
+        grind
+      rw [this] at ε_formula
+      exact ε_formula
 
 /- The next lemma is used in the proof of the CLT, which we phrased in terms of random variables rather than measures.
    Thus we prove it for the law of independent random variables. The result is essentially a restatement of the lemma
@@ -235,6 +236,6 @@ lemma snd_taylor_charFun (snd_moment : Integrable (fun x:ℝ ↦ |x|^2) μ) :
 lemma indep_sum_charFun {Ω : Type*} [MeasureSpace Ω] [IsProbabilityMeasure (ℙ : Measure Ω)] {Y : ℕ → Ω → ℝ}
   (measurable : ∀ (j:ℕ), AEMeasurable (Y j)) (indep : iIndepFun Y ℙ) (n : ℕ) :
     charFun (map (fun ω ↦ ∑ k : Icc 1 n, Y k ω) ℙ) = ∏ k : Icc 1 n, charFun (map (Y k) ℙ) := by
-    have measurable' : ∀ j : Icc 1 n,  AEMeasurable (Y j) := by intro j ; exact measurable j
-    have indep' : iIndepFun (fun i:Icc 1 n ↦ Y i) ℙ := iIndepFun_iff_finset.mp indep (Icc 1 n)
-    exact iIndepFun.charFun_map_fun_sum_eq_prod measurable' indep'
+  have measurable' : ∀ j : Icc 1 n,  AEMeasurable (Y j) := by intro j ; exact measurable j
+  have indep' : iIndepFun (fun i:Icc 1 n ↦ Y i) ℙ := iIndepFun_iff_finset.mp indep (Icc 1 n)
+  exact iIndepFun.charFun_map_fun_sum_eq_prod measurable' indep'
