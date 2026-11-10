@@ -15,6 +15,8 @@ open scoped Real
 -- We fix, once and for all, a probability measure μ on ℝ.
 variable (μ : Measure ℝ) [IsProbabilityMeasure μ]
 
+noncomputable section general_lemmas
+
 lemma charFun_zero_eq_one : charFun μ 0 = 1 := by simp [charFun_zero μ]
 
 lemma charFun_cts : Continuous (charFun μ) := by
@@ -239,3 +241,50 @@ lemma indep_sum_charFun {Ω : Type*} [MeasureSpace Ω] [IsProbabilityMeasure (�
   have measurable' : ∀ j : Icc 1 n,  AEMeasurable (Y j) := by intro j ; exact measurable j
   have indep' : iIndepFun (fun i:Icc 1 n ↦ Y i) ℙ := iIndepFun_iff_finset.mp indep (Icc 1 n)
   exact iIndepFun.charFun_map_fun_sum_eq_prod measurable' indep'
+
+end general_lemmas
+
+noncomputable section charFun_convergence
+
+/- We prove in this section, that if the characteristic functions of a sequence (νₙ) converge pointwise to the
+   characteristic funtion of (a probability measure) μ, then νₙ → μ as probability measures. -/
+
+variable {ν : ℕ → Measure ℝ} [∀ n, IsProbabilityMeasure (ν n)]
+
+theorem charFun_convergence (charFuns_converge : ∀ t:ℝ, Tendsto (fun n ↦ (charFun (ν n) t)) atTop (𝓝 (charFun μ t))) :
+  Tendsto (fun n ↦ (ν n).toProbabilityMeasure) atTop (𝓝 μ.toProbabilityMeasure) := by sorry
+
+/- In the proof, the key idea is to prove the theorem first for a class of probability measures with densities (wrt
+   the Lebesgue measure) and then do a mollification argument. -/
+
+variable {p : ℕ → (ℝ → ℝ≥0∞)} -- We take p n as the density of ν n.
+variable {f : ℝ → ℝ≥0∞}
+
+lemma lintegral_eq_on {g : ℝ → ℝ≥0∞} (exists_density : withDensity volume g = μ) :
+  ∫⁻ x:ℝ, g x ∂volume = 1 := by
+  obtain ⟨g,pg⟩ := exists_density
+  have : MeasurableSet (Set.univ : Set ℝ) := MeasurableSet.univ
+  rw [← show ∫⁻ (x : ℝ) in Set.univ, g x = ∫⁻ (x : ℝ), g x by exact (setLIntegral_univ g)]
+  rw [← withDensity_apply g MeasurableSet.univ]
+  simp
+
+open FourierTransform
+
+#check 𝓕 (fun x:ℝ ↦ (x:ℂ))
+
+-- This lemma allows us to use the fourier transform lemmas for the characteristic function of a measure with a density.
+lemma charFun_eq_fourier {g : ℝ → ℝ≥0∞} (hg : AEMeasurable g volume) (exists_density : withDensity volume g = μ) :
+  charFun μ = 𝓕 (fun x:ℝ ↦ (2*π*I)⁻¹ * (ENNReal.toReal (g x))) := by
+    ext t
+    rw [charFun, ←exists_density]
+    simp [Real.fourier_eq]
+    -- setLintegral fails because the integrals are not lebesgue! Instead use this
+    #check setIntegral_withDensity_eq_setIntegral_smul
+
+    sorry
+
+lemma charFun_convergence_with_densities (charFuns_converge : ∀ t:ℝ, Tendsto (fun n ↦ (charFun (ν n) t)) atTop (𝓝 (charFun μ t)))
+  (exists_densities_ν : ∀ n:ℕ, withDensity volume (p n) = (ν n)) (exists_density_μ : withDensity volume f = μ) :
+  Tendsto (fun n ↦ ∫⁻x:ℝ, EReal.abs (p n x - f x) ∂volume) atTop (𝓝 0) := by
+
+  sorry
