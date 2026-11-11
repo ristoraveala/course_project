@@ -474,15 +474,22 @@ lemma charFun_convergence_with_densities (charFuns_converge : ∀ t:ℝ, Tendsto
   (exists_densities_ν : ∀ n:ℕ, withDensity volume (p n) = (ν n)) (exists_density_μ : withDensity volume f = μ)
   (charFuns_dominated : ∃ g : ℝ → ℝ, Integrable g volume ∧ (∀ (n:ℕ) (t:ℝ), ‖charFun (ν n) t‖ ≤ g t) ∧ ∀ t, ‖charFun μ t‖ ≤ g t) :
   Tendsto (fun n ↦ ∫x:ℝ, |(p n x).toReal - (f x).toReal| ∂volume) atTop (𝓝 0) := by
+
+  -- This is a key step: we rewrite the difference so that we can apply dominated convergence to the RHS.
   have : (fun n ↦ ∫x:ℝ, |(p n x).toReal - (f x).toReal| ∂volume)
     = (fun n ↦ 2 - 2 * ∫ x:ℝ, ((p n x).toReal) ⊓ ((f x).toReal) ∂volume) := by
     ext n
+    -- At fist we write 2 = 1+1 in the RHS, for some reason one needs to hold lean compilers hand here.
     have : 2 - 2 * ∫ x:ℝ, ((p n x).toReal) ⊓ ((f x).toReal) ∂volume = 1 + 1 - 2 * ∫ x:ℝ, ((p n x).toReal) ⊓ ((f x).toReal) ∂volume := by
       simp
       norm_num
     rw [this]
+
+    -- now we replace both 1's as the integrals of suitable densities here. This is key: we need that p n and f are densities of probability measures.
     nth_rw 1 [← integral_of_density_eq_one (ν n) (p_measurable n) (exists_densities_ν n)]
     rw [← integral_of_density_eq_one μ f_measurable exists_density_μ]
+
+    -- Now we use linearity of integral. This is probabily a bit clumsily written...
     have : ((∫ (x : ℝ), (p n x).toReal ∂volume) + ∫ (x : ℝ), (f x).toReal ∂volume) - 2 * ∫ (x : ℝ), min (p n x).toReal (f x).toReal ∂volume
       = ∫ (x : ℝ), (p n x).toReal + (f x).toReal - 2 *  min (p n x).toReal (f x).toReal ∂volume := by
       have pn_integrable := (Integrable.iff_ofReal (f := fun x ↦ (p n x).toReal) (𝕜 := ℂ)).mpr
@@ -505,12 +512,16 @@ lemma charFun_convergence_with_densities (charFuns_converge : ∀ t:ℝ, Tendsto
       rw [← this]
       grind
     rw [this]
+
+    -- At this point we are ready to reduce the claim to an application of the abs_value_min lemma.
     apply integral_congr_ae
     apply Filter.Eventually.of_forall
     intro x
     simp
     exact abs_value_min (p n x).toReal (f x).toReal
   rw [this]
+
+  -- Now with the correctly formulated limit, we can use dominated convergence.
   have limit_by_dominated : Tendsto (fun n ↦ 2 * ∫ x:ℝ, ((p n x).toReal) ⊓ ((f x).toReal) ∂volume) atTop (𝓝 (2:ℝ)) := by
     have : (2:ℝ)*1 =2 := (MulOneClass.mul_one 2)
     nth_rw 2 [← this]
@@ -518,12 +529,12 @@ lemma charFun_convergence_with_densities (charFuns_converge : ∀ t:ℝ, Tendsto
     rw [← integral_of_density_eq_one μ f_measurable exists_density_μ]
     apply tendsto_integral_filter_of_dominated_convergence
 
-    -- First we prove a measurability hypothesis
+    -- First we prove a measurability hypothesis.
     apply Filter.Eventually.of_forall
     intro n
     measurability
 
-    -- Then we prove a bound
+    -- Then we prove a bound.
     apply Filter.Eventually.of_forall
     intro n
     apply Filter.Eventually.of_forall
@@ -535,7 +546,7 @@ lemma charFun_convergence_with_densities (charFuns_converge : ∀ t:ℝ, Tendsto
     have : min (p n x).toReal (f x).toReal ≤ (f x).toReal := by exact Std.min_le_right
     exact this
 
-    -- Now we prove the integrability claim, which is already established earlier
+    -- Now we prove the integrability claim, which is already established earlier.
     have := integrable_density μ f_measurable exists_density_μ
     exact Integrable.iff_ofReal.mpr this
 
@@ -549,7 +560,7 @@ lemma charFun_convergence_with_densities (charFuns_converge : ∀ t:ℝ, Tendsto
     rw [tendsto_ofReal_iff] at this
     exact Filter.Tendsto.min_left this
 
-  -- Now the claim follows after some shuffling.
+  -- Now we have essentially proved the result, we just need to do some shuffling.
   have : Tendsto (fun n:ℕ ↦ (2:ℝ)) atTop (𝓝 2) := tendsto_const_nhds
   have := Tendsto.sub this limit_by_dominated
   simp at this
