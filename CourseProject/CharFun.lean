@@ -250,6 +250,9 @@ noncomputable section charFun_convergence
    characteristic funtion of (a probability measure) μ, then νₙ → μ as probability measures. -/
 
 variable {ν : ℕ → Measure ℝ} [∀ n, IsProbabilityMeasure (ν n)]
+lemma nu_is_pm : ∀ n, IsProbabilityMeasure (ν n) := by
+  expose_names
+  exact inst
 
 theorem charFun_convergence (charFuns_converge : ∀ t:ℝ, Tendsto (fun n ↦ (charFun (ν n) t)) atTop (𝓝 (charFun μ t))) :
   Tendsto (fun n ↦ (ν n).toProbabilityMeasure) atTop (𝓝 μ.toProbabilityMeasure) := by sorry
@@ -257,10 +260,10 @@ theorem charFun_convergence (charFuns_converge : ∀ t:ℝ, Tendsto (fun n ↦ (
 /- In the proof, the key idea is to prove the theorem first for a class of probability measures with densities (wrt
    the Lebesgue measure) and then do a mollification argument. -/
 
-variable {p : ℕ → (ℝ → ℝ≥0∞)} -- We take p n as the density of ν n.
-variable {f : ℝ → ℝ≥0∞}
+variable {p : ℕ → (ℝ → ℝ≥0∞)} (p_measurable : ∀ n, Measurable (p n)) (p_cts : ∀ n , Continuous (fun x:ℝ ↦ ((p n x).toReal:ℂ))) -- We take p n as the density of ν n.
+variable {f : ℝ → ℝ≥0∞} (f_measurable : Measurable f) (f_cts : Continuous (fun x:ℝ ↦ ((f x).toReal:ℂ)))
 
-lemma lintegral_eq_on {g : ℝ → ℝ≥0∞} (exists_density : withDensity volume g = μ) :
+lemma lintegral_of_density_eq_one {g : ℝ → ℝ≥0∞} (exists_density : withDensity volume g = μ) :
   ∫⁻ x:ℝ, g x ∂volume = 1 := by
   obtain ⟨g,pg⟩ := exists_density
   have : MeasurableSet (Set.univ : Set ℝ) := MeasurableSet.univ
@@ -268,23 +271,70 @@ lemma lintegral_eq_on {g : ℝ → ℝ≥0∞} (exists_density : withDensity vol
   rw [← withDensity_apply g MeasurableSet.univ]
   simp
 
+lemma integrable_density {g : ℝ → ℝ≥0∞} {ρ : Measure ℝ} (hg : Measurable g )
+  (hρ : IsProbabilityMeasure ρ) (exists_density : withDensity volume g = ρ) : Integrable (fun x ↦ ((g x).toReal:ℂ)) volume := sorry
+
 open FourierTransform
 
-#check 𝓕 (fun x:ℝ ↦ (x:ℂ))
-
 -- This lemma allows us to use the fourier transform lemmas for the characteristic function of a measure with a density.
-lemma charFun_eq_fourier {g : ℝ → ℝ≥0∞} (hg : AEMeasurable g volume) (exists_density : withDensity volume g = μ) :
-  charFun μ = 𝓕 (fun x:ℝ ↦ (2*π*I)⁻¹ * (ENNReal.toReal (g x))) := by
+lemma charFun_eq_fourier {g : ℝ → ℝ≥0∞} (hg : Measurable g) (exists_density : withDensity volume g = μ) :
+  (fun t ↦ charFun μ (- 2*π*t)) = 𝓕 (fun x:ℝ ↦ (((g x).toReal):ℂ)) := by
     ext t
-    rw [charFun, ←exists_density]
+    rw [charFun, ← exists_density]
     simp [Real.fourier_eq]
-    -- setLintegral fails because the integrals are not lebesgue! Instead use this
-    #check setIntegral_withDensity_eq_setIntegral_smul
+    have ae_finite: (∀ᵐ (x : ℝ) ∂(Measure.restrict volume Set.univ), g x < ∞) := by
+      apply ae_lt_top
+      exact hg
+      simp; push Not
+      rw [lintegral_of_density_eq_one μ exists_density]
+      exact one_ne_top
+    have density_unwind := setIntegral_withDensity_eq_setIntegral_toReal_smul
+            hg ae_finite (fun x:ℝ ↦ cexp (-(2*π*↑t * ↑x * I))) MeasurableSet.univ
+    simp at density_unwind
+    rw [density_unwind]
+    apply integral_congr_ae
+    apply Filter.Eventually.of_forall
+    intro x
+    simp [Real.fourierChar]
+    field_simp
+    have : (Circle.exp (2 * π *t * x))⁻¹ • ((g x).toReal:ℂ) = ((Circle.exp (2*π*t*x))⁻¹:ℂ) * ↑(g x).toReal := by
+      rw [Circle.smul_def] ; simp
+    simp [this, exp_neg]
+    field_simp
 
-    sorry
+lemma charFun_inversion {g : ℝ → ℝ≥0∞} {ρ : Measure ℝ} (hg : Measurable g) (cts_g : Continuous (fun x ↦ ((g x).toReal:ℂ)))
+  (exists_density : withDensity (volume:Measure ℝ) g = ρ)
+  (is_prob_meas : IsProbabilityMeasure ρ) (integrable_charFun : Integrable (charFun ρ) volume):
+  (fun x:ℝ ↦ ((g x).toReal:ℂ)) = fun x:ℝ ↦ ∫ ξ:ℝ, cexp (2*π*I * x * ξ) * charFun ρ (-2*π*ξ) ∂volume := by
+  ext x
+  -- At first we rewrite the claim as a claim concerning Fourier inversion
+  have : ∫ (v : ℝ), cexp (2 * ↑π * I * ↑x * ↑v) * charFun ρ (-2 * π * v) ∂volume
+    = ∫ (v : ℝ), cexp (↑((2:ℝ) * (π:ℝ) * inner ℝ v x) * I) • 𝓕 (fun x:ℝ ↦ (((g x).toReal):ℂ)) v ∂volume:= by
+    apply integral_congr_ae
+    apply Filter.Eventually.of_forall
+    intro ξ
+    simp
+    rw [← charFun_neg (μ := ρ) (2*π*ξ)]
+    have := congr_fun (charFun_eq_fourier ρ hg exists_density) ξ
+    rw [← this]
+    field_simp
+  rw [this]
+  have := Real.fourierInv_eq' (f := 𝓕 (fun x:ℝ ↦ (((g x).toReal):ℂ))) x
+  rw [← this]
+  apply Eq.symm
+  -- Now we just use an existing lemma on Fourier inversion to finish the job.
+  have fourier_is_integrable : Integrable (𝓕 (fun x:ℝ ↦ ((g x).toReal:ℂ))) volume := by
+    rw [← charFun_eq_fourier ρ hg exists_density]
+    have : -2*π ≠ 0 := by norm_num
+    exact Integrable.comp_mul_left' integrable_charFun this
+  have density_is_integrable := integrable_density hg is_prob_meas exists_density
+  have := Continuous.fourierInv_fourier_eq cts_g density_is_integrable fourier_is_integrable
+  exact congr_fun this x
 
+include p_measurable p_cts f_measurable f_cts in
 lemma charFun_convergence_with_densities (charFuns_converge : ∀ t:ℝ, Tendsto (fun n ↦ (charFun (ν n) t)) atTop (𝓝 (charFun μ t)))
-  (exists_densities_ν : ∀ n:ℕ, withDensity volume (p n) = (ν n)) (exists_density_μ : withDensity volume f = μ) :
-  Tendsto (fun n ↦ ∫⁻x:ℝ, EReal.abs (p n x - f x) ∂volume) atTop (𝓝 0) := by
-
+  (exists_densities_ν : ∀ n:ℕ, withDensity volume (p n) = (ν n)) (exists_density_μ : withDensity volume f = μ)
+  (charFuns_integrable_ν : ∀ n:ℕ, Integrable (charFun (ν n)) volume) (charFun_integrable_μ : Integrable (charFun μ) volume) :
+  Tendsto (fun n ↦ ∫x:ℝ, |(p n x).toReal - (f x).toReal| ∂volume) atTop (𝓝 0) := by
+  #check tendsto_integral_filter_of_dominated_convergence (f := 0)
   sorry
