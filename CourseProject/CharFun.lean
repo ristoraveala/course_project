@@ -244,15 +244,13 @@ lemma indep_sum_charFun {Ω : Type*} [MeasureSpace Ω] [IsProbabilityMeasure (�
 
 end general_lemmas
 
+
 noncomputable section charFun_convergence
 
 /- We prove in this section, that if the characteristic functions of a sequence (νₙ) converge pointwise to the
    characteristic funtion of (a probability measure) μ, then νₙ → μ as probability measures. -/
 
 variable {ν : ℕ → Measure ℝ} [∀ n, IsProbabilityMeasure (ν n)]
-lemma nu_is_pm : ∀ n, IsProbabilityMeasure (ν n) := by
-  expose_names
-  exact inst
 
 theorem charFun_convergence (charFuns_converge : ∀ t:ℝ, Tendsto (fun n ↦ (charFun (ν n) t)) atTop (𝓝 (charFun μ t))) :
   Tendsto (fun n ↦ (ν n).toProbabilityMeasure) atTop (𝓝 μ.toProbabilityMeasure) := by sorry
@@ -271,8 +269,8 @@ lemma lintegral_of_density_eq_one {g : ℝ → ℝ≥0∞} (exists_density : wit
   rw [← withDensity_apply g MeasurableSet.univ]
   simp
 
-lemma integrable_density {g : ℝ → ℝ≥0∞} {ρ : Measure ℝ} (hg : Measurable g )
-  (hρ : IsProbabilityMeasure ρ) (exists_density : withDensity volume g = ρ) : Integrable (fun x ↦ ((g x).toReal:ℂ)) volume := sorry
+lemma integrable_density {g : ℝ → ℝ≥0∞} (hg : Measurable g ) (exists_density : withDensity volume g = μ) :
+  Integrable (fun x ↦ ((g x).toReal:ℂ)) volume := sorry
 
 open FourierTransform
 
@@ -302,20 +300,21 @@ lemma charFun_eq_fourier {g : ℝ → ℝ≥0∞} (hg : Measurable g) (exists_de
     simp [this, exp_neg]
     field_simp
 
-lemma charFun_inversion {g : ℝ → ℝ≥0∞} {ρ : Measure ℝ} (hg : Measurable g) (cts_g : Continuous (fun x ↦ ((g x).toReal:ℂ)))
-  (exists_density : withDensity (volume:Measure ℝ) g = ρ)
-  (is_prob_meas : IsProbabilityMeasure ρ) (integrable_charFun : Integrable (charFun ρ) volume):
-  (fun x:ℝ ↦ ((g x).toReal:ℂ)) = fun x:ℝ ↦ ∫ ξ:ℝ, cexp (2*π*I * x * ξ) * charFun ρ (-2*π*ξ) ∂volume := by
+
+lemma charFun_inversion {g : ℝ → ℝ≥0∞} (hg : Measurable g) (cts_g : Continuous (fun x ↦ ((g x).toReal:ℂ)))
+  (exists_density : withDensity (volume:Measure ℝ) g = μ)
+  (integrable_charFun : Integrable (charFun μ) volume):
+  (fun x:ℝ ↦ ((g x).toReal:ℂ)) = fun x:ℝ ↦ ∫ ξ:ℝ, cexp (2*π*I * x * ξ) * charFun μ (-2*π*ξ) ∂volume := by
   ext x
   -- At first we rewrite the claim as a claim concerning Fourier inversion
-  have : ∫ (v : ℝ), cexp (2 * ↑π * I * ↑x * ↑v) * charFun ρ (-2 * π * v) ∂volume
-    = ∫ (v : ℝ), cexp (↑((2:ℝ) * (π:ℝ) * inner ℝ v x) * I) • 𝓕 (fun x:ℝ ↦ (((g x).toReal):ℂ)) v ∂volume:= by
+  have : ∫ (v : ℝ), cexp (2 * ↑π * I * ↑x * ↑v) * charFun μ (-2 * π * v) ∂volume
+    = ∫ (v : ℝ), cexp (↑((2:ℝ) * (π:ℝ) * inner ℝ v x) * I) • 𝓕 (fun x:ℝ ↦ (((g x).toReal):ℂ)) v ∂volume := by
     apply integral_congr_ae
     apply Filter.Eventually.of_forall
     intro ξ
     simp
-    rw [← charFun_neg (μ := ρ) (2*π*ξ)]
-    have := congr_fun (charFun_eq_fourier ρ hg exists_density) ξ
+    rw [← charFun_neg (μ := μ) (2*π*ξ)]
+    have := congr_fun (charFun_eq_fourier μ hg exists_density) ξ
     rw [← this]
     field_simp
   rw [this]
@@ -324,17 +323,121 @@ lemma charFun_inversion {g : ℝ → ℝ≥0∞} {ρ : Measure ℝ} (hg : Measur
   apply Eq.symm
   -- Now we just use an existing lemma on Fourier inversion to finish the job.
   have fourier_is_integrable : Integrable (𝓕 (fun x:ℝ ↦ ((g x).toReal:ℂ))) volume := by
-    rw [← charFun_eq_fourier ρ hg exists_density]
+    rw [← charFun_eq_fourier μ hg exists_density]
     have : -2*π ≠ 0 := by norm_num
     exact Integrable.comp_mul_left' integrable_charFun this
-  have density_is_integrable := integrable_density hg is_prob_meas exists_density
+  have density_is_integrable := integrable_density (μ := μ) hg exists_density
   have := Continuous.fourierInv_fourier_eq cts_g density_is_integrable fourier_is_integrable
   exact congr_fun this x
 
 include p_measurable p_cts f_measurable f_cts in
+lemma charFun_pointwise_convergence_with_densities (charFuns_converge : ∀ t:ℝ, Tendsto (fun n ↦ (charFun (ν n) t)) atTop (𝓝 (charFun μ t)))
+  (exists_densities_ν : ∀ n:ℕ, withDensity volume (p n) = (ν n)) (exists_density_μ : withDensity volume f = μ)
+  (charFuns_dominated : ∃ g : ℝ → ℝ, Integrable g volume ∧ (∀ (n:ℕ) (t:ℝ), ‖charFun (ν n) t‖ ≤ g t) ∧ ∀ t, ‖charFun μ t‖ ≤ g t) :
+  ∀ x : ℝ, Tendsto (fun n ↦ ((p n x).toReal - ((f x).toReal):ℂ)) atTop (𝓝 0) := by
+
+  -- Some preliminary parts
+  obtain ⟨g,pg⟩ := charFuns_dominated
+
+  have charFuns_ν_integrable : ∀ n:ℕ, Integrable (charFun (ν n)) volume := by
+    intro n
+    have bdd : ∀ᵐ (x : ℝ) ∂volume, ‖charFun (ν n) x‖ ≤ g x := by
+      apply Filter.Eventually.of_forall
+      exact pg.right.left n
+    have h_measurable : AEStronglyMeasurable (charFun (ν n)) volume := by measurability
+    exact Integrable.mono' pg.left h_measurable bdd
+
+  have charFun_μ_integrable : Integrable (charFun μ) volume := by
+    have bdd :  ∀ᵐ (x : ℝ) ∂volume, ‖charFun μ x‖ ≤ g x := by
+      apply Filter.Eventually.of_forall
+      exact pg.right.right
+    have h_measurable : AEStronglyMeasurable (charFun μ) volume := by measurability
+    exact Integrable.mono' pg.left h_measurable bdd
+
+  -- We transform the claim to the pointwise claim wrt -2πx, for which we proved the inversion formula.
+  intro x
+  -- Now we apply the inversion formula.
+  have : (fun n ↦ (p n x).toReal - ((f x).toReal:ℂ))
+    = (fun n ↦ ∫ ξ:ℝ, cexp (2*π*I * x * ξ) * (charFun (ν n) (-2*π*ξ) - charFun μ (-2*π*ξ)) ∂volume) := by
+    ext n
+    have := charFun_inversion (ν n) (p_measurable n) (p_cts n) (exists_densities_ν n) (charFuns_ν_integrable n)
+    rw [congr_fun this x]
+    have := charFun_inversion μ f_measurable f_cts exists_density_μ charFun_μ_integrable
+    rw [congr_fun this x]
+
+    have cexp_bdd : ∀ᵐ (ξ : ℝ) ∂volume, ‖(fun ξ:ℝ ↦ cexp (2 * ↑π * I * ↑x* ↑ξ)) ξ‖ ≤ 1 := by
+      apply Filter.Eventually.of_forall
+      intro ξ
+      simp
+      have : 2 * ↑π * I * ↑x* ↑ξ = I * ((2*π*x*ξ):ℝ) := by simp ; grind
+      rw [this]
+      have := norm_exp_I_mul_ofReal (2*π*x*ξ)
+      exact le_of_eq this
+    have cexp_meas : AEStronglyMeasurable (fun ξ:ℝ ↦ cexp (2 * ↑π * I * ↑x* ↑ξ)) volume := by measurability
+
+    have integrable_n : Integrable (fun ξ:ℝ ↦ cexp (2 * ↑π * I * ↑x* ↑ξ) * charFun (ν n) (-2 * π * ξ)) volume := by
+      have : Integrable (fun ξ:ℝ ↦ charFun (ν n) (-2 * π * ξ)) volume := by
+        have : -2*π ≠ 0 := by norm_num
+        exact Integrable.comp_mul_left' (charFuns_ν_integrable n) this
+      exact Integrable.bdd_mul this cexp_meas cexp_bdd
+
+    have integrable_μ : Integrable (fun ξ:ℝ ↦ cexp (2 * ↑π * I * ↑x * ↑ξ) * charFun μ (-2 * π * ξ)) volume := by
+      have : Integrable (fun ξ:ℝ ↦ charFun μ (-2 * π * ξ)) volume := by
+        have : -2*π ≠ 0 := by norm_num
+        exact Integrable.comp_mul_left' charFun_μ_integrable this
+      exact Integrable.bdd_mul this cexp_meas cexp_bdd
+
+    rw [← integral_sub integrable_n integrable_μ]
+    apply integral_congr_ae
+    apply Filter.Eventually.of_forall
+    intro ξ
+    field_simp
+
+  rw [this]
+  have : ∫ x:ℝ, (0:ℂ) ∂volume = 0 := integral_zero ℝ ℂ
+  rw [← this]
+  /- The assumptions are so that we can now just use dominated convergence.
+     At first we prove that the integrands are suitably measurable. -/
+  apply tendsto_integral_filter_of_dominated_convergence
+  apply Filter.Eventually.of_forall
+  intro n
+  measurability
+
+  -- Then we prove that 2*g is the suitable bound.
+  apply Filter.Eventually.of_forall
+  intro n
+  apply Filter.Eventually.of_forall
+  intro t
+  rw [Complex.norm_mul,
+      show cexp (2 * ↑π * I * ↑x * ↑t) = cexp (I*((2 * π * x * t):ℝ)) by simp; field_simp,
+      norm_exp_I_mul_ofReal, one_mul]
+  apply le_trans (norm_sub_le (charFun (ν n) (-2 * π * t)) (charFun μ (-2 * π * t)))
+  have : ‖charFun (ν n) (-2 * π * t)‖ + ‖charFun μ (-2 * π * t)‖ ≤ 2 * g (-2*π*t) := by
+    have h1 := (add_le_add_left ((pg.right.left n) (-2*π*t)) ‖charFun μ (-2 * π * t)‖)
+    have h2 := (add_le_add_right (pg.right.right (-2*π*t)) (g (-2*π*t)))
+    have integrand_bd := le_trans h1 h2
+    have : g (-2 * π * t) + g (-2 * π * t) = 2 * g (-2 * π * t) := Eq.symm (two_mul (g (-2 * π * t)))
+    rw [this] at integrand_bd
+    exact integrand_bd
+  exact this
+
+  -- Finally we prove that inside the integral the convergence happens poinwise.
+  have : -2*π ≠ 0 := by norm_num
+  exact Integrable.const_mul (Integrable.comp_mul_left' pg.left this) (2:ℝ)
+  apply Filter.Eventually.of_forall
+  intro t
+  have charFuns_diff_to_zero := Tendsto.sub_const (charFuns_converge (-2*π*t)) (charFun μ (-2*π*t))
+  rw [show charFun μ (-2 * π * t) - charFun μ (-2 * π * t) = 0 by simp] at charFuns_diff_to_zero
+  have := Tendsto.const_mul (cexp (2 * ↑π * I * ↑x * ↑t)) charFuns_diff_to_zero
+  rw [show cexp (2 * ↑π * I * ↑x * ↑t) * 0 = 0 by simp] at this
+  exact this
+
+include p_measurable p_cts f_measurable f_cts in
 lemma charFun_convergence_with_densities (charFuns_converge : ∀ t:ℝ, Tendsto (fun n ↦ (charFun (ν n) t)) atTop (𝓝 (charFun μ t)))
   (exists_densities_ν : ∀ n:ℕ, withDensity volume (p n) = (ν n)) (exists_density_μ : withDensity volume f = μ)
-  (charFuns_integrable_ν : ∀ n:ℕ, Integrable (charFun (ν n)) volume) (charFun_integrable_μ : Integrable (charFun μ) volume) :
+  (charFuns_dominated : ∃ g : ℝ → ℝ, Integrable g volume ∧ (∀ (n:ℕ) (t:ℝ), ‖charFun (ν n) t‖ ≤ g t) ∧ ∀ t, ‖charFun μ t‖ ≤ g x) :
   Tendsto (fun n ↦ ∫x:ℝ, |(p n x).toReal - (f x).toReal| ∂volume) atTop (𝓝 0) := by
   #check tendsto_integral_filter_of_dominated_convergence (f := 0)
   sorry
+
+end charFun_convergence
