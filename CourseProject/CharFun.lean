@@ -283,7 +283,7 @@ lemma integral_of_density_eq_one {g : ℝ → ℝ≥0∞} (hg : Measurable g) (e
   rw[toReal_one] at this
   exact this
 
-lemma integrable_density {g : ℝ → ℝ≥0∞} (hg : Measurable g ) (exists_density : withDensity volume g = μ) :
+lemma integrable_density {g : ℝ → ℝ≥0∞} (hg : Measurable g) (exists_density : withDensity volume g = μ) :
   Integrable (fun x ↦ ((g x).toReal:ℂ)) volume := by
   have : AEStronglyMeasurable (fun x ↦ ((g x).toReal:ℂ)) volume := by
     apply Complex.continuous_ofReal.comp_aestronglyMeasurable
@@ -475,7 +475,41 @@ lemma charFun_convergence_with_densities (charFuns_converge : ∀ t:ℝ, Tendsto
   (charFuns_dominated : ∃ g : ℝ → ℝ, Integrable g volume ∧ (∀ (n:ℕ) (t:ℝ), ‖charFun (ν n) t‖ ≤ g t) ∧ ∀ t, ‖charFun μ t‖ ≤ g t) :
   Tendsto (fun n ↦ ∫x:ℝ, |(p n x).toReal - (f x).toReal| ∂volume) atTop (𝓝 0) := by
   have : (fun n ↦ ∫x:ℝ, |(p n x).toReal - (f x).toReal| ∂volume)
-    = (fun n ↦ 2 - 2 * ∫ x:ℝ, ((p n x).toReal) ⊓ ((f x).toReal) ∂volume) := sorry
+    = (fun n ↦ 2 - 2 * ∫ x:ℝ, ((p n x).toReal) ⊓ ((f x).toReal) ∂volume) := by
+    ext n
+    have : 2 - 2 * ∫ x:ℝ, ((p n x).toReal) ⊓ ((f x).toReal) ∂volume = 1 + 1 - 2 * ∫ x:ℝ, ((p n x).toReal) ⊓ ((f x).toReal) ∂volume := by
+      simp
+      norm_num
+    rw [this]
+    nth_rw 1 [← integral_of_density_eq_one (ν n) (p_measurable n) (exists_densities_ν n)]
+    rw [← integral_of_density_eq_one μ f_measurable exists_density_μ]
+    have : ((∫ (x : ℝ), (p n x).toReal ∂volume) + ∫ (x : ℝ), (f x).toReal ∂volume) - 2 * ∫ (x : ℝ), min (p n x).toReal (f x).toReal ∂volume
+      = ∫ (x : ℝ), (p n x).toReal + (f x).toReal - 2 *  min (p n x).toReal (f x).toReal ∂volume := by
+      have pn_integrable := (Integrable.iff_ofReal (f := fun x ↦ (p n x).toReal) (𝕜 := ℂ)).mpr
+        (integrable_density (ν n) (p_measurable n) (exists_densities_ν n))
+      have f_integrable := (Integrable.iff_ofReal (f := fun x ↦ (f x).toReal) (𝕜 := ℂ)).mpr
+        (integrable_density μ f_measurable exists_density_μ)
+      have : (∫ (x : ℝ), (p n x).toReal) + ∫ (x : ℝ), (f x).toReal = ∫ (x : ℝ), (p n x).toReal + (f x).toReal := by
+        have := integral_add pn_integrable f_integrable
+        exact Eq.symm this
+      rw [this]
+      have : (∫ (x : ℝ), (p n x).toReal + (f x).toReal) - 2 * ∫ (x : ℝ), min (p n x).toReal (f x).toReal
+        = (∫ (x : ℝ), (p n x).toReal + (f x).toReal) + (- 2) * ∫ (x : ℝ), min (p n x).toReal (f x).toReal := by grind
+      rw [this]
+      rw [← integral_const_mul (-2:ℝ) (fun x:ℝ ↦ min (p n x).toReal (f x).toReal)]
+      have pn_plus_f_integrable : Integrable (fun x:ℝ ↦ (p n x).toReal + (f x).toReal) :=
+        (integrable_add_iff_integrable_left' f_integrable).mpr pn_integrable
+      have f_integrable' : Integrable (fun x:ℝ ↦ -2*min (p n x).toReal (f x).toReal) :=
+        Integrable.const_mul (Integrable.inf pn_integrable f_integrable) (-2)
+      have := integral_add pn_plus_f_integrable f_integrable'
+      rw [← this]
+      grind
+    rw [this]
+    apply integral_congr_ae
+    apply Filter.Eventually.of_forall
+    intro x
+    simp
+    exact abs_value_min (p n x).toReal (f x).toReal
   rw [this]
   have limit_by_dominated : Tendsto (fun n ↦ 2 * ∫ x:ℝ, ((p n x).toReal) ⊓ ((f x).toReal) ∂volume) atTop (𝓝 (2:ℝ)) := by
     have : (2:ℝ)*1 =2 := (MulOneClass.mul_one 2)
