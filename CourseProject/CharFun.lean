@@ -269,8 +269,42 @@ lemma lintegral_of_density_eq_one {g : ℝ → ℝ≥0∞} (exists_density : wit
   rw [← withDensity_apply g MeasurableSet.univ]
   simp
 
+lemma ae_finite_density {g : ℝ → ℝ≥0∞} (exists_density : withDensity volume g = μ) (hg : Measurable g) :
+  ∀ᵐ (x : ℝ) ∂volume, g x < ∞ := by
+  apply ae_lt_top hg
+  rw [lintegral_of_density_eq_one μ exists_density]
+  exact one_ne_top
+
+lemma integral_of_density_eq_one {g : ℝ → ℝ≥0∞} (hg : Measurable g) (exists_density : withDensity volume g = μ) :
+  ∫ x:ℝ, (g x).toReal ∂volume = 1 := by
+  have : AEMeasurable g volume := Measurable.aemeasurable hg
+  have := integral_toReal this (ae_finite_density μ exists_density hg)
+  rw [lintegral_of_density_eq_one μ exists_density] at this
+  rw[toReal_one] at this
+  exact this
+
 lemma integrable_density {g : ℝ → ℝ≥0∞} (hg : Measurable g ) (exists_density : withDensity volume g = μ) :
-  Integrable (fun x ↦ ((g x).toReal:ℂ)) volume := sorry
+  Integrable (fun x ↦ ((g x).toReal:ℂ)) volume := by
+  have : AEStronglyMeasurable (fun x ↦ ((g x).toReal:ℂ)) volume := by
+    apply Complex.continuous_ofReal.comp_aestronglyMeasurable
+    have ae_st_meas : AEStronglyMeasurable g volume := Measurable.aestronglyMeasurable hg
+    have := Measurable.ennreal_toReal hg
+    exact Measurable.aestronglyMeasurable this
+  apply (integrable_norm_iff this).mp
+  have norm_ae_str_meas : AEStronglyMeasurable (fun x ↦ ‖((g x).toReal:ℂ)‖) volume
+    := AEStronglyMeasurable.norm this
+  have : 0 ≤ᵐ[volume] fun x ↦ ‖((g x).toReal:ℂ)‖ := by
+    apply Filter.Eventually.of_forall
+    intro x
+    simp
+  apply (lintegral_ofReal_ne_top_iff_integrable norm_ae_str_meas this).mp
+  have : (fun x:ℝ ↦ ENNReal.ofReal ‖((g x).toReal:ℂ)‖) =ᵐ[volume] (fun x:ℝ ↦ g x) := by
+    simp
+    apply ofReal_toReal_ae_eq
+    exact ae_finite_density μ exists_density hg
+  rw [lintegral_congr_ae this]
+  rw [lintegral_of_density_eq_one μ exists_density]
+  exact one_ne_top
 
 open FourierTransform
 
@@ -354,6 +388,7 @@ lemma charFun_pointwise_convergence_with_densities (charFuns_converge : ∀ t:�
     have h_measurable : AEStronglyMeasurable (charFun μ) volume := by measurability
     exact Integrable.mono' pg.left h_measurable bdd
 
+  -- The main proof begins.
   intro x
   -- Now we apply the inversion formula.
   have : (fun n ↦ (p n x).toReal - ((f x).toReal:ℂ))
@@ -395,8 +430,8 @@ lemma charFun_pointwise_convergence_with_densities (charFuns_converge : ∀ t:�
   rw [this]
   have : ∫ x:ℝ, (0:ℂ) ∂volume = 0 := integral_zero ℝ ℂ
   rw [← this]
-  /- The assumptions are so that we can now just use dominated convergence.
-     At first we prove that the integrands are suitably measurable. -/
+
+  -- The assumptions are so that we can now just use dominated convergence.
   apply tendsto_integral_filter_of_dominated_convergence
   apply Filter.Eventually.of_forall
   intro n
@@ -431,12 +466,59 @@ lemma charFun_pointwise_convergence_with_densities (charFuns_converge : ∀ t:�
   rw [show cexp (2 * ↑π * I * ↑x * ↑t) * 0 = 0 by simp] at this
   exact this
 
+-- In the lemma below, the application of dominated convergence needs the following elementary lemma.
+lemma abs_value_min (a b : ℝ) : |a-b| = a + b - 2*(a ⊓ b) := by grind
+
 include p_measurable p_cts f_measurable f_cts in
 lemma charFun_convergence_with_densities (charFuns_converge : ∀ t:ℝ, Tendsto (fun n ↦ (charFun (ν n) t)) atTop (𝓝 (charFun μ t)))
   (exists_densities_ν : ∀ n:ℕ, withDensity volume (p n) = (ν n)) (exists_density_μ : withDensity volume f = μ)
-  (charFuns_dominated : ∃ g : ℝ → ℝ, Integrable g volume ∧ (∀ (n:ℕ) (t:ℝ), ‖charFun (ν n) t‖ ≤ g t) ∧ ∀ t, ‖charFun μ t‖ ≤ g x) :
+  (charFuns_dominated : ∃ g : ℝ → ℝ, Integrable g volume ∧ (∀ (n:ℕ) (t:ℝ), ‖charFun (ν n) t‖ ≤ g t) ∧ ∀ t, ‖charFun μ t‖ ≤ g t) :
   Tendsto (fun n ↦ ∫x:ℝ, |(p n x).toReal - (f x).toReal| ∂volume) atTop (𝓝 0) := by
-  #check tendsto_integral_filter_of_dominated_convergence (f := 0)
-  sorry
+  have : (fun n ↦ ∫x:ℝ, |(p n x).toReal - (f x).toReal| ∂volume)
+    = (fun n ↦ 2 - 2 * ∫ x:ℝ, ((p n x).toReal) ⊓ ((f x).toReal) ∂volume) := sorry
+  rw [this]
+  have limit_by_dominated : Tendsto (fun n ↦ 2 * ∫ x:ℝ, ((p n x).toReal) ⊓ ((f x).toReal) ∂volume) atTop (𝓝 (2:ℝ)) := by
+    have : (2:ℝ)*1 =2 := (MulOneClass.mul_one 2)
+    nth_rw 2 [← this]
+    apply Tendsto.const_mul 2
+    rw [← integral_of_density_eq_one μ f_measurable exists_density_μ]
+    apply tendsto_integral_filter_of_dominated_convergence
+
+    -- First we prove a measurability hypothesis
+    apply Filter.Eventually.of_forall
+    intro n
+    measurability
+
+    -- Then we prove a bound
+    apply Filter.Eventually.of_forall
+    intro n
+    apply Filter.Eventually.of_forall
+    intro x
+    have pn_ge_0 : (p n x).toReal ≥ 0 := by exact toReal_nonneg
+    have f_ge_0 : (f x).toReal ≥ 0 := by exact toReal_nonneg
+    have : min (p n x).toReal (f x).toReal ≥ 0 := le_min pn_ge_0 f_ge_0
+    rw [Real.norm_of_nonneg this]
+    have : min (p n x).toReal (f x).toReal ≤ (f x).toReal := by exact Std.min_le_right
+    exact this
+
+    -- Now we prove the integrability claim, which is already established earlier
+    have := integrable_density μ f_measurable exists_density_μ
+    exact Integrable.iff_ofReal.mpr this
+
+    -- Finally we prove pointwise convergence of the integrand.
+    apply Filter.Eventually.of_forall
+    intro x
+    have := charFun_pointwise_convergence_with_densities μ p_measurable p_cts f_measurable f_cts
+                              charFuns_converge exists_densities_ν exists_density_μ charFuns_dominated x
+    have := Tendsto.add_const ↑(f x).toReal this
+    simp at this
+    rw [tendsto_ofReal_iff] at this
+    exact Filter.Tendsto.min_left this
+
+  -- Now the claim follows after some shuffling.
+  have : Tendsto (fun n:ℕ ↦ (2:ℝ)) atTop (𝓝 2) := tendsto_const_nhds
+  have := Tendsto.sub this limit_by_dominated
+  simp at this
+  exact this
 
 end charFun_convergence
