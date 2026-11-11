@@ -354,7 +354,6 @@ lemma charFun_pointwise_convergence_with_densities (charFuns_converge : ∀ t:�
     have h_measurable : AEStronglyMeasurable (charFun μ) volume := by measurability
     exact Integrable.mono' pg.left h_measurable bdd
 
-  -- We transform the claim to the pointwise claim wrt -2πx, for which we proved the inversion formula.
   intro x
   -- Now we apply the inversion formula.
   have : (fun n ↦ (p n x).toReal - ((f x).toReal:ℂ))
