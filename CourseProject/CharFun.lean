@@ -459,9 +459,11 @@ lemma charFun_pointwise_convergence_with_densities (charFuns_converge : ∀ t:�
     exact integrand_bd
   exact this
 
-  -- Finally we prove that inside the integral the convergence happens poinwise.
+  -- The bound x ↦ 2*g(-2 * π x) must be integrable.
   have : -2*π ≠ 0 := by norm_num
   exact Integrable.const_mul (Integrable.comp_mul_left' pg.left this) (2:ℝ)
+
+  -- Finally we prove that inside the integral the convergence happens poinwise.
   apply Filter.Eventually.of_forall
   intro t
   have charFuns_diff_to_zero := Tendsto.sub_const (charFuns_converge (-2*π*t)) (charFun μ (-2*π*t))
@@ -568,19 +570,79 @@ lemma charFun_convergence_with_densities (charFuns_converge : ∀ t:ℝ, Tendsto
   simp at this
   exact this
 
--- We will now begin to work with the convolution of μ with a Gaussian measure, which we shall call γ.
+/- We will now begin to work with the convolution of μ with a Gaussian measure, which we shall call γ.
+   We allow the singular case δ = 0 to avoid type issues. -/
 
-#check gaussianReal_absolutelyContinuous
-def q := (gaussianPDF 0 1)
+def γ : ℝ≥0 → Measure ℝ := fun δ ↦ gaussianReal 0 δ
 
-def γ : Ioo 0 1 → Measure ℝ := fun δ ↦ withDensity volume (gaussianPDF 0  δ)
+lemma γ_is_gaussian {δ : ℝ≥0} (hδ : δ ≠ 0) : γ δ = withDensity volume (gaussianPDF 0 δ) := gaussianReal_of_var_ne_zero 0 hδ
 
-lemma γ_is_gaussian (δ : Ioo 0 1) : γ δ = gaussianReal 0 δ := by
-  #check gaussianPDF
-  sorry
+lemma γ_abs_cts {δ : ℝ≥0} (hδ : δ ≠ 0) : γ δ ≪ volume := gaussianReal_absolutelyContinuous 0 hδ
+
+lemma gaussian_conv_abs_cts  {δ : ℝ≥0} (hδ : δ ≠ 0) : conv μ (γ δ) ≪ volume := by
+  have : SFinite (γ δ) := by
+    rw [γ]
+    exact instSFiniteOfSigmaFinite
+  exact conv_absolutelyContinuous (γ_abs_cts hδ)
+
+lemma gaussian_conv_has_density {δ:ℝ≥0} (hδ : δ ≠ 0) : μ ∗ (γ δ) = withDensity volume (∂(μ ∗ (γ δ))/∂volume) := by
+  rw [γ]
+  have := gaussian_conv_abs_cts μ hδ
+  rw [γ] at this
+  have := absolutelyContinuous_iff_withDensity_rnDeriv_eq (ν := volume) (μ := μ ∗ gaussianReal 0 δ).mp this
+  exact Eq.symm this
+
+lemma gaussian_conv_charFun_integrable {δ:ℝ≥0} (hδ : δ ≠ 0) : Integrable (charFun (μ ∗ (γ δ))) volume := by
+  rw [γ]
+  have : charFun (μ ∗ (gaussianReal 0 δ)) = charFun (gaussianReal 0 δ) * charFun μ := by
+    ext t
+    rw [charFun_conv t]
+    exact mul_comm' (charFun μ t) (charFun (gaussianReal 0 δ) t)
+  rw [this]
+  have : charFun (gaussianReal 0 δ) = (fun t:ℝ ↦ cexp (- δ * ↑t ^ 2 / 2)) := by
+    ext t
+    rw [charFun_gaussianReal]
+    simp
+    field_simp
+  rw [this]
+  rw [show (fun t:ℝ ↦ cexp (- δ * ↑t ^ 2 / 2)) = (fun t:ℝ ↦ (Real.exp (- δ * t^2/2):ℂ)) by ext t ; simp]
+
+  apply Integrable.mul_bdd
+
+  -- We now have to prove that the assumptions of Integrable.mul_bdd hold. At first we prove that exp(-δt^2/2) is integrable.
+  have : Integrable (fun t ↦ Real.exp (-δ * t^2/2)) := by
+    have : (fun t ↦ Real.exp (-δ * t^2/2)) = fun x ↦ √(2*π*1/δ) * gaussianPDFReal 0 (1/δ) x := by
+      unfold gaussianPDFReal
+      ext t
+      simp
+      field_simp
+    rw [this]
+    apply Integrable.const_mul
+    exact integrable_gaussianPDFReal 0 (1/δ)
+  exact Integrable.ofReal this
+
+  -- Next we need the strong measaurability of the characteristic function:
+  measurability
+
+  -- Finally we use the fact that the characteristic function is bounded by one.
+  apply Filter.Eventually.of_forall
+  intro x
+  exact MeasureTheory.norm_charFun_le_one (μ := μ) x
+
+-- Remove these when done.
+#check conv μ (γ 1)
+#check conv_withDensity_eq_lconvolution
+#check conv_absolutelyContinuous
+#check withDensity_absolutelyContinuous
+#check gaussianReal_of_var_ne_zero
+
 
 #check ProbabilityTheory.gaussianPDF_def
 #check gaussianPDFReal 0 1
 #check MeasureTheory.conv_withDensity_eq_lconvolution
+#check MeasureTheory.rnDeriv_ae_eq_condExp
+#check conv_absolutelyContinuous
+#check absolutelyContinuous_iff_withDensity_rnDeriv_eq
+#check rnDeriv (γ 1) volume
 
 end charFun_convergence
