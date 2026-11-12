@@ -629,7 +629,63 @@ lemma gaussian_conv_charFun_integrable {δ:ℝ≥0} (hδ : δ ≠ 0) : Integrabl
   intro x
   exact MeasureTheory.norm_charFun_le_one (μ := μ) x
 
+
+-- Next we show that for bounded Lipschitz functions, we can find a bound for ∫ f dμ - ∫ f d(μ ∗ γ δ) that is independent of μ.
+lemma lipschitz_bdd_unif_approx {C L : ℝ≥0} {f : ℝ → ℝ} {δ:ℝ≥0} (hδ : δ ≠ 0) (f_bdd : ∀ (x y : ℝ), dist (f x) (f y) ≤ C) (f_Lipschitz : LipschitzWith L f):
+  |∫ x:ℝ, f x ∂μ - ∫ x:ℝ, f x ∂(μ ∗ (γ δ))| ≤ L * √δ := by
+
+  unfold conv
+
+  have sum_measurable : AEMeasurable (fun x ↦ x.1 + x.2) (μ.prod (γ δ)) := by measurability
+  have integrand_stmeasurable : AEStronglyMeasurable f (map (fun x ↦ x.1 + x.2) (μ.prod (γ δ))) := by
+    apply Continuous.aestronglyMeasurable
+    exact LipschitzWith.continuous f_Lipschitz
+  rw [integral_map sum_measurable integrand_stmeasurable]
+
+  have integrable_f : Integrable f μ := sorry
+  have integrable_f_circ_proj : Integrable (fun x:ℝ×ℝ ↦ f x.1) (μ.prod (γ δ)) := sorry
+  have integrable_f_circ_sum : Integrable (fun x:ℝ×ℝ ↦ f (x.1 + x.2)) (μ.prod (γ δ)) := sorry
+
+  have : ∫ x:ℝ, f x ∂μ = ∫ x:ℝ×ℝ, f x.1 ∂ μ.prod (γ δ) := sorry
+  rw [this, ← integral_sub integrable_f_circ_proj integrable_f_circ_sum]
+  apply le_trans abs_integral_le_integral_abs
+  have lip_bd : (fun x:ℝ×ℝ ↦ |f x.1 - f (x.1 + x.2)|) ≤ (fun x:ℝ×ℝ ↦ L * |x.2|) := by
+    intro x
+    simp
+    have := lipschitzWith_iff_dist_le_mul.mp f_Lipschitz x.1 (x.1+x.2)
+    simp[Real.dist_eq] at this
+    exact this
+
+  have proj_integrable : Integrable (fun x:ℝ×ℝ ↦ L * |x.2|) (μ.prod (γ δ)) := sorry
+  have diff_integrable : Integrable (fun x:ℝ×ℝ ↦ |f x.1 - f (x.1+x.2)|) (μ.prod (γ δ)) := sorry
+
+  apply le_trans (integral_mono diff_integrable proj_integrable lip_bd)
+  have : ∫ (x : ℝ × ℝ), ↑L * |x.2| ∂μ.prod (γ δ) = L * ∫ u:ℝ, |u| ∂(gaussianReal 0 δ) := sorry
+  rw [this]
+  have abs_mem_L2 : MemLp (fun x:ℝ ↦ |x|) 2 (gaussianReal 0 δ) := by sorry
+  have var_ineq := variance_nonneg (fun x ↦ |x|) (gaussianReal 0 δ)
+  rw [variance_eq_sub abs_mem_L2] at var_ineq
+  have ineq := add_le_add_left var_ineq ((∫ (x : ℝ), |x| ∂gaussianReal 0 δ) ^ 2)
+  simp at ineq
+  have variance_formula : ∫ (x : ℝ), x ^ 2 ∂gaussianReal 0 δ = δ := by
+    have : MemLp id 2 (gaussianReal 0 δ) := by exact IsGaussian.memLp_two_id
+    have variance_formula_2 := variance_eq_sub this
+    simp at variance_formula_2
+    rw [variance_formula_2]
+
+  rw [variance_formula, show δ = √δ ^ 2 by norm_num] at ineq
+
+  have δ_ge_0 : (0:ℝ) ≤ √δ := Real.sqrt_nonneg ↑δ
+  have int_ge_0 : 0 ≤ ∫ (x : ℝ), |x| ∂gaussianReal 0 δ := by
+    apply integral_nonneg
+    exact IsAbsoluteValue.abv_nonneg'
+
+  have claim_up_to_const := (sq_le_sq₀ int_ge_0 δ_ge_0).mp ineq
+  have : 0 ≤ ↑L := by exact zero_le
+  exact mul_le_mul_of_nonneg_left claim_up_to_const this
+
 -- Remove these when done.
+#check tendsto_iff_forall_lipschitz_integral_tendsto
 #check conv μ (γ 1)
 #check conv_withDensity_eq_lconvolution
 #check conv_absolutelyContinuous
