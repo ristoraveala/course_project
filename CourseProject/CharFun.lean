@@ -631,10 +631,18 @@ lemma gaussian_conv_charFun_integrable {δ:ℝ≥0} (hδ : δ ≠ 0) : Integrabl
 
 
 -- Next we show that for bounded Lipschitz functions, we can find a bound for ∫ f dμ - ∫ f d(μ ∗ γ δ) that is independent of μ.
-lemma lipschitz_bdd_unif_approx {C L : ℝ≥0} {f : ℝ → ℝ} {δ:ℝ≥0} (hδ : δ ≠ 0) (f_bdd : ∀ (x y : ℝ), dist (f x) (f y) ≤ C) (f_Lipschitz : LipschitzWith L f):
+lemma lipschitz_bdd_unif_approx {L : ℝ≥0} {f : ℝ → ℝ} {δ:ℝ≥0} (hδ : δ ≠ 0) (f_bdd : ∃ C, ∀ (x y : ℝ), dist (f x) (f y) ≤ C) (f_Lipschitz : LipschitzWith L f):
   |∫ x:ℝ, f x ∂μ - ∫ x:ℝ, f x ∂(μ ∗ (γ δ))| ≤ L * √δ := by
 
   unfold conv
+  have f_bound_one_point : ∃ M:ℝ, ∀ x:ℝ, |f x| ≤ M := by
+    obtain ⟨C,pC⟩ := f_bdd
+    use C + |f 0|
+    intro x
+    have := pC x 0
+    rw [Real.dist_eq] at this
+    have triangle_consequence : |f x| ≤ |f x - f 0| + |f 0| := by grind
+    exact le_trans triangle_consequence (add_le_add_left this |f 0|)
 
   have sum_measurable : AEMeasurable (fun x ↦ x.1 + x.2) (μ.prod (γ δ)) := by measurability
   have integrand_stmeasurable : AEStronglyMeasurable f (map (fun x ↦ x.1 + x.2) (μ.prod (γ δ))) := by
@@ -647,6 +655,7 @@ lemma lipschitz_bdd_unif_approx {C L : ℝ≥0} {f : ℝ → ℝ} {δ:ℝ≥0} (
   have integrable_f_circ_sum : Integrable (fun x:ℝ×ℝ ↦ f (x.1 + x.2)) (μ.prod (γ δ)) := sorry
 
   have : ∫ x:ℝ, f x ∂μ = ∫ x:ℝ×ℝ, f x.1 ∂ μ.prod (γ δ) := sorry
+
   rw [this, ← integral_sub integrable_f_circ_proj integrable_f_circ_sum]
   apply le_trans abs_integral_le_integral_abs
   have lip_bd : (fun x:ℝ×ℝ ↦ |f x.1 - f (x.1 + x.2)|) ≤ (fun x:ℝ×ℝ ↦ L * |x.2|) := by
@@ -662,7 +671,9 @@ lemma lipschitz_bdd_unif_approx {C L : ℝ≥0} {f : ℝ → ℝ} {δ:ℝ≥0} (
   apply le_trans (integral_mono diff_integrable proj_integrable lip_bd)
   have : ∫ (x : ℝ × ℝ), ↑L * |x.2| ∂μ.prod (γ δ) = L * ∫ u:ℝ, |u| ∂(gaussianReal 0 δ) := sorry
   rw [this]
+
   have abs_mem_L2 : MemLp (fun x:ℝ ↦ |x|) 2 (gaussianReal 0 δ) := by sorry
+
   have var_ineq := variance_nonneg (fun x ↦ |x|) (gaussianReal 0 δ)
   rw [variance_eq_sub abs_mem_L2] at var_ineq
   have ineq := add_le_add_left var_ineq ((∫ (x : ℝ), |x| ∂gaussianReal 0 δ) ^ 2)
