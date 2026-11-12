@@ -284,27 +284,31 @@ lemma integral_of_density_eq_one {g : ℝ → ℝ≥0∞} (hg : Measurable g) (e
   exact this
 
 lemma integrable_density {g : ℝ → ℝ≥0∞} (hg : Measurable g) (exists_density : withDensity volume g = μ) :
-  Integrable (fun x ↦ ((g x).toReal:ℂ)) volume := by
-  have : AEStronglyMeasurable (fun x ↦ ((g x).toReal:ℂ)) volume := by
-    apply Complex.continuous_ofReal.comp_aestronglyMeasurable
+  Integrable (fun x ↦ (g x).toReal) volume := by
+  have : AEStronglyMeasurable (fun x ↦ (g x).toReal) volume := by
     have ae_st_meas : AEStronglyMeasurable g volume := Measurable.aestronglyMeasurable hg
     have := Measurable.ennreal_toReal hg
     exact Measurable.aestronglyMeasurable this
   apply (integrable_norm_iff this).mp
-  have norm_ae_str_meas : AEStronglyMeasurable (fun x ↦ ‖((g x).toReal:ℂ)‖) volume
-    := AEStronglyMeasurable.norm this
-  have : 0 ≤ᵐ[volume] fun x ↦ ‖((g x).toReal:ℂ)‖ := by
+  have norm_ae_str_meas : AEStronglyMeasurable (fun x ↦ |(g x).toReal|) volume
+    := Continuous.comp_aestronglyMeasurable continuous_abs this
+  have : 0 ≤ᵐ[volume] fun x ↦ |(g x).toReal| := by
     apply Filter.Eventually.of_forall
     intro x
     simp
   apply (lintegral_ofReal_ne_top_iff_integrable norm_ae_str_meas this).mp
-  have : (fun x:ℝ ↦ ENNReal.ofReal ‖((g x).toReal:ℂ)‖) =ᵐ[volume] (fun x:ℝ ↦ g x) := by
+  have : (fun x:ℝ ↦ ENNReal.ofReal |(g x).toReal|) =ᵐ[volume] (fun x:ℝ ↦ g x) := by
     simp
     apply ofReal_toReal_ae_eq
     exact ae_finite_density μ exists_density hg
   rw [lintegral_congr_ae this]
   rw [lintegral_of_density_eq_one μ exists_density]
   exact one_ne_top
+
+lemma integrable_density' {g : ℝ → ℝ≥0∞} (hg : Measurable g) (exists_density : withDensity volume g = μ) :
+  Integrable (fun x ↦ ((g x).toReal:ℂ)) volume := by
+  have := integrable_density μ hg exists_density
+  exact Integrable.ofReal this
 
 open FourierTransform
 
@@ -360,7 +364,7 @@ lemma charFun_inversion {g : ℝ → ℝ≥0∞} (hg : Measurable g) (cts_g : Co
     rw [← charFun_eq_fourier μ hg exists_density]
     have : -2*π ≠ 0 := by norm_num
     exact Integrable.comp_mul_left' integrable_charFun this
-  have density_is_integrable := integrable_density (μ := μ) hg exists_density
+  have density_is_integrable := integrable_density' (μ := μ) hg exists_density
   have := Continuous.fourierInv_fourier_eq cts_g density_is_integrable fourier_is_integrable
   exact congr_fun this x
 
@@ -485,17 +489,15 @@ lemma charFun_convergence_with_densities (charFuns_converge : ∀ t:ℝ, Tendsto
       norm_num
     rw [this]
 
-    -- now we replace both 1's as the integrals of suitable densities here. This is key: we need that p n and f are densities of probability measures.
+    -- We replace both 1's as the integrals of suitable densities here. In this part we need that p n and f are densities of probability measures.
     nth_rw 1 [← integral_of_density_eq_one (ν n) (p_measurable n) (exists_densities_ν n)]
     rw [← integral_of_density_eq_one μ f_measurable exists_density_μ]
 
-    -- Now we use linearity of integral. This is probabily a bit clumsily written...
+    -- We use linearity of integral to write both sides of the equation as ∫ (something). This is probabily a bit clumsily written...
     have : ((∫ (x : ℝ), (p n x).toReal ∂volume) + ∫ (x : ℝ), (f x).toReal ∂volume) - 2 * ∫ (x : ℝ), min (p n x).toReal (f x).toReal ∂volume
       = ∫ (x : ℝ), (p n x).toReal + (f x).toReal - 2 *  min (p n x).toReal (f x).toReal ∂volume := by
-      have pn_integrable := (Integrable.iff_ofReal (f := fun x ↦ (p n x).toReal) (𝕜 := ℂ)).mpr
-        (integrable_density (ν n) (p_measurable n) (exists_densities_ν n))
-      have f_integrable := (Integrable.iff_ofReal (f := fun x ↦ (f x).toReal) (𝕜 := ℂ)).mpr
-        (integrable_density μ f_measurable exists_density_μ)
+      have pn_integrable := integrable_density (ν n) (p_measurable n) (exists_densities_ν n)
+      have f_integrable := integrable_density μ f_measurable exists_density_μ
       have : (∫ (x : ℝ), (p n x).toReal) + ∫ (x : ℝ), (f x).toReal = ∫ (x : ℝ), (p n x).toReal + (f x).toReal := by
         have := integral_add pn_integrable f_integrable
         exact Eq.symm this
@@ -565,5 +567,20 @@ lemma charFun_convergence_with_densities (charFuns_converge : ∀ t:ℝ, Tendsto
   have := Tendsto.sub this limit_by_dominated
   simp at this
   exact this
+
+-- We will now begin to work with the convolution of μ with a Gaussian measure, which we shall call γ.
+
+#check gaussianReal_absolutelyContinuous
+def q := (gaussianPDF 0 1)
+
+def γ : Ioo 0 1 → Measure ℝ := fun δ ↦ withDensity volume (gaussianPDF 0  δ)
+
+lemma γ_is_gaussian (δ : Ioo 0 1) : γ δ = gaussianReal 0 δ := by
+  #check gaussianPDF
+  sorry
+
+#check ProbabilityTheory.gaussianPDF_def
+#check gaussianPDFReal 0 1
+#check MeasureTheory.conv_withDensity_eq_lconvolution
 
 end charFun_convergence
