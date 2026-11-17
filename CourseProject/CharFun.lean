@@ -574,8 +574,56 @@ lemma charFun_convergence_with_densities (charFuns_converge : ∀ t:ℝ, Tendsto
    We allow the singular case δ = 0 to avoid type issues. -/
 
 lemma gaussian_conv_has_density {δ:ℝ≥0} (hδ : δ ≠ 0) : μ ∗ (gaussianReal 0 δ) = withDensity volume (fun x ↦ ∫⁻ y, gaussianPDF 0 δ (x - y) ∂μ) := by
-  sorry
+  ext A
+  have indi_measurable : Measurable (A.indicator (1:ℝ→ℝ≥0∞)) := by measurability
+  have set_measurable : MeasurableSet A := by measurability
+  have gaussianPDF_measurable : Measurable (gaussianPDF 0 δ) := by exact measurable_gaussianPDF 0 δ
+  rw [withDensity_apply, ← lintegral_indicator_one, lintegral_conv, gaussianReal_of_var_ne_zero 0 hδ]
+  have : ∫⁻ (x : ℝ), ∫⁻ (y : ℝ), A.indicator 1 (x + y) ∂volume.withDensity (gaussianPDF 0 δ) ∂μ
+    = ∫⁻ (x:ℝ) , ∫⁻ (y:ℝ) , (gaussianPDF 0 δ) y * A.indicator 1 (x + y)  ∂volume ∂μ := by
+    have : ∀ᵐ x ∂μ, ∫⁻ (y:ℝ) , A.indicator 1 (x + y) ∂ volume.withDensity (gaussianPDF 0 δ)
+      = ∫⁻ (y:ℝ) , (gaussianPDF 0 δ) y * A.indicator 1 (x + y) ∂volume := by
+      apply Filter.Eventually.of_forall
+      intro x
+      have : Measurable ((fun y ↦ A.indicator (1:ℝ→ℝ≥0∞) (x+y))) := by measurability
+      have := lintegral_withDensity_eq_lintegral_mul volume (measurable_gaussianPDF 0 δ) this
+      simp at this
+      exact this
+    rw [lintegral_congr_ae this]
+  rw [this]
+  have : ∀ᵐ x ∂μ, ∫⁻ (y:ℝ) , (gaussianPDF 0 δ) y *  A.indicator 1 (x + y) ∂volume
+    = ∫⁻ (y:ℝ) in A , (gaussianPDF 0 δ) (y-x) ∂volume := by
+    apply Filter.Eventually.of_forall
+    intro x
+    have := lintegral_sub_right_eq_self (μ := volume) (fun y ↦ (gaussianPDF 0 δ) y * A.indicator (1:ℝ→ℝ≥0∞) (x+y)) x
+    simp at this
+    rw [← this, ← lintegral_indicator]
 
+    apply lintegral_congr_ae
+    apply Filter.Eventually.of_forall
+    intro y
+    simp
+    have indicator_eq := Set.indicator_mul_right (i:=y) A (fun y ↦ gaussianPDF 0 δ (y - x)) (fun (y:ℝ) ↦ (1:ℝ≥0∞))
+    have : A.indicator (fun y ↦ (1:ℝ≥0∞)) = A.indicator 1 := by
+      apply Set.indicator_congr
+      unfold Set.EqOn
+      intro a ha
+      simp
+
+    have : A.indicator (fun y ↦ (1:ℝ≥0∞)) y = A.indicator 1 y := congr_fun this y
+    rw [this] at indicator_eq
+    rw [← indicator_eq]
+    simp
+    measurability
+  rw [lintegral_congr_ae this]
+
+  have : AEMeasurable (Function.uncurry (fun x ↦ (fun y ↦ gaussianPDF 0 δ (y - x)))) (μ.prod (volume.restrict A)) := by measurability
+  rw [lintegral_lintegral_swap this]
+
+  -- some side goals
+  exact indi_measurable
+  exact set_measurable
+  exact set_measurable
 lemma gaussian_conv_density_cts {δ:ℝ≥0} (hδ : δ ≠0) : Continuous (fun x ↦ ∫⁻ y, gaussianPDF 0 δ (x - y) ∂μ) := by
   apply continuous_iff_continuousAt.mpr
   intro x
