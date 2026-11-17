@@ -573,27 +573,44 @@ lemma charFun_convergence_with_densities (charFuns_converge : ∀ t:ℝ, Tendsto
 /- We will now begin to work with the convolution of μ with a Gaussian measure, which we shall call γ.
    We allow the singular case δ = 0 to avoid type issues. -/
 
-def γ : ℝ≥0 → Measure ℝ := fun δ ↦ gaussianReal 0 δ
+lemma gaussian_conv_has_density {δ:ℝ≥0} (hδ : δ ≠ 0) : μ ∗ (gaussianReal 0 δ) = withDensity volume (fun x ↦ ∫⁻ y, gaussianPDF 0 δ (x - y) ∂μ) := by
+  sorry
 
-lemma γ_is_gaussian {δ : ℝ≥0} (hδ : δ ≠ 0) : γ δ = withDensity volume (gaussianPDF 0 δ) := gaussianReal_of_var_ne_zero 0 hδ
+lemma gaussian_conv_density_cts {δ:ℝ≥0} (hδ : δ ≠0) : Continuous (fun x ↦ ∫⁻ y, gaussianPDF 0 δ (x - y) ∂μ) := by
+  apply continuous_iff_continuousAt.mpr
+  intro x
+  apply tendsto_lintegral_filter_of_dominated_convergence
+  apply Filter.Eventually.of_forall
+  intro x
+  measurability
+  apply Filter.Eventually.of_forall
+  intro x
+  apply Filter.Eventually.of_forall
+  intro a
+  let bd := fun x:ℝ ↦ ENNReal.ofReal (√(2*π*δ))⁻¹
+  have : gaussianPDF 0 δ (x-a) ≤  bd (x -a) := by
+    unfold bd
+    unfold gaussianPDF
+    unfold gaussianPDFReal
+    apply ENNReal.ofReal_le_ofReal
+    field_simp
+    apply Real.exp_le_one_iff.mpr
+    field_simp ; simp
+    exact sq_nonneg (x - a)
+  exact this
+  rw [show ∫⁻ (a : ℝ), some (√(2 * π * ↑δ))⁻¹.toNNReal ∂μ = (√(2 * π * ↑δ))⁻¹.toNNReal by simp]
+  exact coe_ne_top
+  apply Filter.Eventually.of_forall
+  intro a
+  have : Continuous (fun x:ℝ ↦ gaussianPDF 0 δ (x - a)) := by
+    unfold gaussianPDF
+    unfold gaussianPDFReal
+    have := ENNReal.continuous_ofReal
+    fun_prop
+  exact Continuous.tendsto' this x (gaussianPDF 0 δ (x - a)) rfl
 
-lemma γ_abs_cts {δ : ℝ≥0} (hδ : δ ≠ 0) : γ δ ≪ volume := gaussianReal_absolutelyContinuous 0 hδ
 
-lemma gaussian_conv_abs_cts  {δ : ℝ≥0} (hδ : δ ≠ 0) : conv μ (γ δ) ≪ volume := by
-  have : SFinite (γ δ) := by
-    rw [γ]
-    exact instSFiniteOfSigmaFinite
-  exact conv_absolutelyContinuous (γ_abs_cts hδ)
-
-lemma gaussian_conv_has_density {δ:ℝ≥0} (hδ : δ ≠ 0) : μ ∗ (γ δ) = withDensity volume (∂(μ ∗ (γ δ))/∂volume) := by
-  rw [γ]
-  have := gaussian_conv_abs_cts μ hδ
-  rw [γ] at this
-  have := absolutelyContinuous_iff_withDensity_rnDeriv_eq (ν := volume) (μ := μ ∗ gaussianReal 0 δ).mp this
-  exact Eq.symm this
-
-lemma gaussian_conv_charFun_integrable {δ:ℝ≥0} (hδ : δ ≠ 0) : Integrable (charFun (μ ∗ (γ δ))) volume := by
-  rw [γ]
+lemma gaussian_conv_charFun_integrable {δ:ℝ≥0} (hδ : δ ≠ 0) : Integrable (charFun (μ ∗ (gaussianReal 0 δ))) volume := by
   have : charFun (μ ∗ (gaussianReal 0 δ)) = charFun (gaussianReal 0 δ) * charFun μ := by
     ext t
     rw [charFun_conv t]
@@ -632,7 +649,7 @@ lemma gaussian_conv_charFun_integrable {δ:ℝ≥0} (hδ : δ ≠ 0) : Integrabl
 
 -- Next we show that for bounded Lipschitz functions, we can find a bound for ∫ f dμ - ∫ f d(μ ∗ γ δ) that is independent of μ.
 lemma lipschitz_bdd_unif_approx {L : ℝ≥0} {f : ℝ → ℝ} {δ:ℝ≥0} (f_bdd : ∃ C, ∀ (x y : ℝ), dist (f x) (f y) ≤ C) (f_Lipschitz : LipschitzWith L f):
-  |∫ x:ℝ, f x ∂μ - ∫ x:ℝ, f x ∂(μ ∗ (γ δ))| ≤ L * √δ := by
+  |∫ x:ℝ, f x ∂μ - ∫ x:ℝ, f x ∂(μ ∗ (gaussianReal 0 δ))| ≤ L * √δ := by
 
   unfold conv
 
@@ -650,8 +667,8 @@ lemma lipschitz_bdd_unif_approx {L : ℝ≥0} {f : ℝ → ℝ} {δ:ℝ≥0} (f_
   have f_cts := LipschitzWith.continuous f_Lipschitz
 
   -- We need a bunch of measurability lemmas...
-  have sum_measurable : AEMeasurable (fun x ↦ x.1 + x.2) (μ.prod (γ δ)) := by measurability
-  have integrand_stmeasurable : AEStronglyMeasurable f (map (fun x ↦ x.1 + x.2) (μ.prod (γ δ))) := by
+  have sum_measurable : AEMeasurable (fun x ↦ x.1 + x.2) (μ.prod (gaussianReal 0 δ)) := by measurability
+  have integrand_stmeasurable : AEStronglyMeasurable f (map (fun x ↦ x.1 + x.2) (μ.prod (gaussianReal 0 δ))) := by
     apply Continuous.aestronglyMeasurable
     exact LipschitzWith.continuous f_Lipschitz
   rw [integral_map sum_measurable integrand_stmeasurable]
@@ -662,16 +679,14 @@ lemma lipschitz_bdd_unif_approx {L : ℝ≥0} {f : ℝ → ℝ} {δ:ℝ≥0} (f_
     exact Continuous.aestronglyMeasurable f_cts
     apply Filter.Eventually.of_forall
     exact pM
-  have integrable_f_circ_proj : Integrable (fun x:ℝ×ℝ ↦ f x.1) (μ.prod (γ δ)) := by
-    rw [γ]
+  have integrable_f_circ_proj : Integrable (fun x:ℝ×ℝ ↦ f x.1) (μ.prod (gaussianReal 0 δ)) := by
     apply Integrable.of_bound
     have : Continuous (fun x:ℝ×ℝ ↦ f x.1) := by fun_prop
     exact Continuous.aestronglyMeasurable this
     apply Filter.Eventually.of_forall
     intro x
     exact pM x.1
-  have integrable_f_circ_sum : Integrable (fun x:ℝ×ℝ ↦ f (x.1 + x.2)) (μ.prod (γ δ)) := by
-    rw[γ]
+  have integrable_f_circ_sum : Integrable (fun x:ℝ×ℝ ↦ f (x.1 + x.2)) (μ.prod (gaussianReal 0 δ)) := by
     apply Integrable.of_bound
     have : Continuous (fun x:ℝ×ℝ ↦ f (x.1 + x.2)) := by fun_prop
     exact Continuous.aestronglyMeasurable this
@@ -680,13 +695,10 @@ lemma lipschitz_bdd_unif_approx {L : ℝ≥0} {f : ℝ → ℝ} {δ:ℝ≥0} (f_
     exact pM (x.1+x.2)
 
   -- To prove this simple rewrite, we need to know that γ δ = gaussianReal 0 δ is a probability measure.
-  have : ∫ x:ℝ, f x ∂μ = ∫ x:ℝ×ℝ, f x.1 ∂ μ.prod (γ δ) := by
-    have : SFinite (γ δ) := by rw [γ] ; exact instSFiniteOfSigmaFinite
+  have : ∫ x:ℝ, f x ∂μ = ∫ x:ℝ×ℝ, f x.1 ∂ μ.prod (gaussianReal 0 δ) := by
     rw [integral_prod_symm (fun x:ℝ×ℝ ↦ f x.1) integrable_f_circ_proj]
-    have : ∫ (y : ℝ), ∫ (x : ℝ), f (x, y).1 ∂μ ∂γ δ = (∫ (x : ℝ), f x ∂μ) * ∫ (y : ℝ), (1:ℝ) ∂γ δ := by
-      rw [γ]
-      simp
-    simp [this, show ∫ (y : ℝ), (1:ℝ) ∂γ δ = 1 by rw [γ] ; simp]
+    have : ∫ (y : ℝ), ∫ (x : ℝ), f (x, y).1 ∂μ ∂(gaussianReal 0 δ) = (∫ (x : ℝ), f x ∂μ) * ∫ (y : ℝ), (1:ℝ) ∂(gaussianReal 0 δ) := by simp
+    simp [this, show ∫ (y : ℝ), (1:ℝ) ∂(gaussianReal 0 δ) = 1 by simp]
 
   rw [this, ← integral_sub integrable_f_circ_proj integrable_f_circ_sum]
 
@@ -700,8 +712,7 @@ lemma lipschitz_bdd_unif_approx {L : ℝ≥0} {f : ℝ → ℝ} {δ:ℝ≥0} (f_
     simp[Real.dist_eq] at this
     exact this
 
-  have proj_integrable : Integrable (fun x:ℝ×ℝ ↦ L * |x.2|) (μ.prod (γ δ)) := by
-    rw[γ]
+  have proj_integrable : Integrable (fun x:ℝ×ℝ ↦ L * |x.2|) (μ.prod (gaussianReal 0 δ)) := by
     have : AEStronglyMeasurable (fun x:ℝ×ℝ ↦ L * |x.2|) (μ.prod (gaussianReal 0 δ)) := by measurability
     apply (integrable_prod_iff' this).mpr
     constructor
@@ -714,17 +725,16 @@ lemma lipschitz_bdd_unif_approx {L : ℝ≥0} {f : ℝ → ℝ} {δ:ℝ≥0} (f_
       have : Integrable id (gaussianReal 0 δ) := IsGaussian.integrable_id
       have := Integrable.abs this
       exact this
-  have diff_integrable : Integrable (fun x:ℝ×ℝ ↦ |f x.1 - f (x.1+x.2)|) (μ.prod (γ δ)) := by
+  have diff_integrable : Integrable (fun x:ℝ×ℝ ↦ |f x.1 - f (x.1+x.2)|) (μ.prod (gaussianReal 0 δ)) := by
     apply Integrable.abs
     exact Integrable.sub' integrable_f_circ_proj integrable_f_circ_sum
 
   apply le_trans (integral_mono diff_integrable proj_integrable lip_bd)
 
-  have : ∫ (x : ℝ × ℝ), ↑L * |x.2| ∂μ.prod (γ δ) = L * ∫ u:ℝ, |u| ∂(gaussianReal 0 δ) := by
-    rw [γ, integral_prod_symm (μ := μ) (ν := gaussianReal 0 δ) (fun x:ℝ×ℝ ↦ (L:ℝ) * |x.2|)]
+  have : ∫ (x : ℝ × ℝ), ↑L * |x.2| ∂μ.prod (gaussianReal 0 δ) = L * ∫ u:ℝ, |u| ∂(gaussianReal 0 δ) := by
+    rw [integral_prod_symm (μ := μ) (ν := gaussianReal 0 δ) (fun x:ℝ×ℝ ↦ (L:ℝ) * |x.2|)]
     simp
     apply integral_const_mul
-    rw [← γ]
     exact proj_integrable
   rw [this]
 
@@ -753,7 +763,100 @@ lemma lipschitz_bdd_unif_approx {L : ℝ≥0} {f : ℝ → ℝ} {δ:ℝ≥0} (f_
   have : 0 ≤ ↑L := by exact zero_le
   exact mul_le_mul_of_nonneg_left claim_up_to_const this
 
+lemma charFuns_convergence_densities (δ:ℝ≥0) (charFuns_converge : ∀ t:ℝ, Tendsto (fun n ↦ (charFun (ν n) t)) atTop (𝓝 (charFun μ t))) :
+  ∀ t:ℝ, Tendsto (fun n ↦ (charFun (ν n ∗ (gaussianReal 0 δ)) t)) atTop (𝓝 (charFun (μ ∗ (gaussianReal 0 δ)) t)) := by
+    intro t
+    -- Use charFun_conv
+    sorry
 
+
+-- This lemma essentially proves theoem charFun_convergence.
+
+lemma charFun_convergence_Lipschitz {f : ℝ → ℝ} (charFuns_converge : ∀ t:ℝ, Tendsto (fun n ↦ (charFun (ν n) t)) atTop (𝓝 (charFun μ t)))
+   (f_bdd : ∃ C, ∀ (x y : ℝ), dist (f x) (f y) ≤ C) (f_Lipschitz : ∃ L, LipschitzWith L f) :
+   Tendsto (fun n ↦ ∫ x, f x ∂ (ν n)) atTop (𝓝 (∫ x, f x ∂μ)) := by
+
+  have f_bound_one_point : ∃ M:ℝ, ∀ x:ℝ, |f x| ≤ M := by
+    obtain ⟨C,pC⟩ := f_bdd
+    use C + |f 0|
+    intro x
+    have := pC x 0
+    rw [Real.dist_eq] at this
+    have triangle_consequence : |f x| ≤ |f x - f 0| + |f 0| := by grind
+    exact le_trans triangle_consequence (add_le_add_left this |f 0|)
+  obtain ⟨M,pM⟩ := f_bound_one_point
+
+
+  obtain ⟨L,pL⟩ := f_Lipschitz
+  have f_Lipschitz' : LipschitzWith L f := lipschitzOnWith_univ.mp fun ⦃x⦄ a ⦃y⦄ a_1 ↦ pL x y
+  apply NormedAddCommGroup.tendsto_atTop.mpr
+  intro ε hε
+  simp
+  let charFun_conv_convergence := fun δ:ℝ≥0 ↦ charFuns_convergence_densities μ δ charFuns_converge
+  let convolution_bdd := fun (δ:ℝ≥0) ↦ (lipschitz_bdd_unif_approx (δ := δ) μ f_bdd f_Lipschitz')
+  have : ∀δ:ℝ≥0, δ≠0 → Tendsto (fun n ↦ ∫ x, f x ∂ (ν n ∗ (gaussianReal 0 δ))) atTop (𝓝 (∫ x, f x ∂(μ ∗ (gaussianReal 0 δ)))) := by
+    intro δ hδ
+
+    let p : ℕ → ℝ → ℝ≥0∞ := fun n ↦ (fun x ↦ ∫⁻ (y : ℝ), gaussianPDF 0 δ (x - y) ∂ν n)
+    have exists_densities : ∀ (n : ℕ), volume.withDensity (p n) = ν n ∗ (gaussianReal 0 δ) := by
+      intro n
+      exact Eq.symm (gaussian_conv_has_density (ν n) hδ)
+    let g : ℝ → ℝ≥0∞ := fun x ↦ ∫⁻ (y : ℝ), gaussianPDF 0 δ (x - y) ∂μ
+    have exists_density : volume.withDensity g = μ ∗ (gaussianReal 0 δ) := Eq.symm (gaussian_conv_has_density μ hδ)
+
+    have p_cts : ∀ n , Continuous (fun x ↦ (p n x).toReal) := by sorry
+    have p_cts' : ∀ n , Continuous (fun x ↦ ((p n x).toReal:ℂ)) := by sorry
+    have g_cts : Continuous (fun x ↦ (g x).toReal) := by sorry
+    have g_cts' : Continuous (fun x ↦ ((g x).toReal:ℂ)) := by sorry
+
+    have p_meas : ∀ (n : ℕ), Measurable (p n) := by
+      intro n
+      measurability
+    have g_meas : Measurable g := by measurability
+
+    -- Here we let h
+    have charFuns_dominated : ∃ h : ℝ → ℝ,
+      Integrable h volume
+      ∧ (∀ (n:ℕ) (t:ℝ), ‖charFun ((ν n) ∗ (gaussianReal 0 δ)) t‖ ≤ h t)
+      ∧ ∀ t, ‖charFun (μ ∗ (gaussianReal 0 δ)) t‖ ≤ h t := by
+      sorry
+
+
+    apply tendsto_sub_nhds_zero_iff.mp
+    have : (fun n:ℕ ↦ ∫ (x : ℝ), f x ∂ν n ∗ (gaussianReal 0 δ) - ∫ (x : ℝ), f x ∂μ ∗ (gaussianReal 0 δ))
+      = (fun n:ℕ ↦ ∫ x:ℝ, (f x) * ((p n x).toReal - (g x).toReal) ∂volume) := sorry
+    rw [this]
+    apply (tendsto_zero_iff_abs_tendsto_zero (fun n:ℕ ↦ ∫ x:ℝ, (f x) * ((p n x).toReal - (g x).toReal) ∂volume)).mpr
+    have non_neg : ∀ n, (abs ∘ fun n ↦ ∫ (x : ℝ), f x * ((p n x).toReal - (g x).toReal)) n ≥ 0 := by simp
+    have : ∀ n, (abs ∘ fun n ↦ ∫ (x : ℝ), f x * ((p n x).toReal - (g x).toReal)) n ≤ |M| * ∫ x:ℝ, |(p n x).toReal - (g x).toReal| ∂volume := by
+      intro n
+      simp
+      apply le_trans abs_integral_le_integral_abs
+      simp
+      have bdd : (fun x:ℝ ↦ |f x| * |(p n x).toReal - (g x).toReal|) ≤ (fun x:ℝ ↦ |M| * |(p n x).toReal - (g x).toReal|) := sorry
+      have hg : Integrable (fun x:ℝ ↦ |M| * |(p n x).toReal - (g x).toReal|) := sorry
+      have hf : Integrable (fun x:ℝ ↦ |f x| * |(p n x).toReal - (g x).toReal|) := by
+        have : AEStronglyMeasurable ((fun x:ℝ ↦ |f x| * |(p n x).toReal - (g x).toReal|)) := by
+          have : Continuous (fun x:ℝ ↦ |f x|) := by
+            have : Continuous f := by exact LipschitzWith.continuous pL
+            fun_prop
+          have : Continuous ((fun x:ℝ ↦ |f x| * |(p n x).toReal - (g x).toReal|)) := by fun_prop
+          exact Continuous.aestronglyMeasurable this
+        apply Integrable.mono hg this
+        apply Filter.Eventually.of_forall
+        intro x
+        simp
+        exact bdd x
+      apply le_trans (integral_mono hf hg bdd)
+      exact Std.le_of_eq (integral_const_mul (|M|:ℝ) (fun x ↦ |(p n x).toReal - (g x).toReal|))
+
+    apply squeeze_zero non_neg this
+    have := charFun_convergence_with_densities (μ ∗ (gaussianReal 0 δ)) p_meas p_cts' g_meas g_cts' (charFun_conv_convergence δ) exists_densities exists_density charFuns_dominated
+    have := Tendsto.const_smul_zero (|M|:ℝ) this
+    simp at this
+    exact this
+
+  sorry
 
 -- Remove these when done.
 #check tendsto_iff_forall_lipschitz_integral_tendsto
