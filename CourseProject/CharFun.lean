@@ -609,24 +609,13 @@ lemma gaussian_conv_density_cts {δ:ℝ≥0} (hδ : δ ≠0) : Continuous (fun x
     fun_prop
   exact Continuous.tendsto' this x (gaussianPDF 0 δ (x - a)) rfl
 
-
-lemma gaussian_conv_charFun_integrable {δ:ℝ≥0} (hδ : δ ≠ 0) : Integrable (charFun (μ ∗ (gaussianReal 0 δ))) volume := by
-  have : charFun (μ ∗ (gaussianReal 0 δ)) = charFun (gaussianReal 0 δ) * charFun μ := by
-    ext t
-    rw [charFun_conv t]
-    exact mul_comm' (charFun μ t) (charFun (gaussianReal 0 δ) t)
-  rw [this]
+lemma gaussian_charFun_integrable {δ:ℝ≥0} (hδ : δ ≠ 0) : Integrable (charFun (gaussianReal 0 δ)) volume := by
   have : charFun (gaussianReal 0 δ) = (fun t:ℝ ↦ cexp (- δ * ↑t ^ 2 / 2)) := by
     ext t
     rw [charFun_gaussianReal]
     simp
     field_simp
-  rw [this]
-  rw [show (fun t:ℝ ↦ cexp (- δ * ↑t ^ 2 / 2)) = (fun t:ℝ ↦ (Real.exp (- δ * t^2/2):ℂ)) by ext t ; simp]
-
-  apply Integrable.mul_bdd
-
-  -- We now have to prove that the assumptions of Integrable.mul_bdd hold. At first we prove that exp(-δt^2/2) is integrable.
+  rw [this, show (fun t:ℝ ↦ cexp (-δ * t^2/2)) = (fun t:ℝ ↦ (Real.exp (-δ * t^2/2):ℂ )) by simp]
   have : Integrable (fun t ↦ Real.exp (-δ * t^2/2)) := by
     have : (fun t ↦ Real.exp (-δ * t^2/2)) = fun x ↦ √(2*π*1/δ) * gaussianPDFReal 0 (1/δ) x := by
       unfold gaussianPDFReal
@@ -638,9 +627,18 @@ lemma gaussian_conv_charFun_integrable {δ:ℝ≥0} (hδ : δ ≠ 0) : Integrabl
     exact integrable_gaussianPDFReal 0 (1/δ)
   exact Integrable.ofReal this
 
+lemma gaussian_conv_charFun_integrable {δ:ℝ≥0} (hδ : δ ≠ 0) : Integrable (charFun (μ ∗ (gaussianReal 0 δ))) volume := by
+  have : charFun (μ ∗ (gaussianReal 0 δ)) = charFun (gaussianReal 0 δ) * charFun μ := by
+    ext t
+    rw [charFun_conv t]
+    exact mul_comm' (charFun μ t) (charFun (gaussianReal 0 δ) t)
+  rw [this]
+  apply Integrable.mul_bdd
+  -- We now have to prove that the assumptions of Integrable.mul_bdd hold. At first we prove that exp(-δt^2/2) is integrable.
+  have : Integrable (fun t ↦ charFun (gaussianReal 0 δ) t) := gaussian_charFun_integrable hδ
+  exact this
   -- Next we need the strong measaurability of the characteristic function:
   measurability
-
   -- Finally we use the fact that the characteristic function is bounded by one.
   apply Filter.Eventually.of_forall
   intro x
@@ -814,7 +812,7 @@ lemma charFun_convergence_Lipschitz {f : ℝ → ℝ} (charFuns_converge : ∀ t
       measurability
     have g_meas : Measurable g := by measurability
 
-    -- Here we let h
+    -- Here we let h be the charfun of gaussianReal 0 δ,
     have charFuns_dominated : ∃ h : ℝ → ℝ,
       Integrable h volume
       ∧ (∀ (n:ℕ) (t:ℝ), ‖charFun ((ν n) ∗ (gaussianReal 0 δ)) t‖ ≤ h t)
