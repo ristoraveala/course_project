@@ -609,6 +609,7 @@ lemma gaussian_conv_density_cts {δ:ℝ≥0} (hδ : δ ≠0) : Continuous (fun x
     fun_prop
   exact Continuous.tendsto' this x (gaussianPDF 0 δ (x - a)) rfl
 
+
 lemma gaussian_charFun_integrable {δ:ℝ≥0} (hδ : δ ≠ 0) : Integrable (charFun (gaussianReal 0 δ)) volume := by
   have : charFun (gaussianReal 0 δ) = (fun t:ℝ ↦ cexp (- δ * ↑t ^ 2 / 2)) := by
     ext t
@@ -764,7 +765,12 @@ lemma lipschitz_bdd_unif_approx {L : ℝ≥0} {f : ℝ → ℝ} {δ:ℝ≥0} (f_
 lemma charFuns_convergence_densities (δ:ℝ≥0) (charFuns_converge : ∀ t:ℝ, Tendsto (fun n ↦ (charFun (ν n) t)) atTop (𝓝 (charFun μ t))) :
   ∀ t:ℝ, Tendsto (fun n ↦ (charFun (ν n ∗ (gaussianReal 0 δ)) t)) atTop (𝓝 (charFun (μ ∗ (gaussianReal 0 δ)) t)) := by
     intro t
-    -- Use charFun_conv
+    rw [charFun_conv]
+    have : (fun n ↦ charFun (ν n ∗ gaussianReal 0 δ) t) = (fun n ↦ charFun (ν n) t * charFun (gaussianReal 0 δ) t) := by
+      ext n
+      rw [charFun_conv]
+    rw [this]
+    -- limit is preserved when multiplying by const does the trick
     sorry
 
 
@@ -812,12 +818,47 @@ lemma charFun_convergence_Lipschitz {f : ℝ → ℝ} (charFuns_converge : ∀ t
       measurability
     have g_meas : Measurable g := by measurability
 
-    -- Here we let h be the charfun of gaussianReal 0 δ,
+    -- Here we let h be the charfun of gaussianReal 0 δ, use gaussian_charFun_integrable
     have charFuns_dominated : ∃ h : ℝ → ℝ,
       Integrable h volume
       ∧ (∀ (n:ℕ) (t:ℝ), ‖charFun ((ν n) ∗ (gaussianReal 0 δ)) t‖ ≤ h t)
       ∧ ∀ t, ‖charFun (μ ∗ (gaussianReal 0 δ)) t‖ ≤ h t := by
-      sorry
+      have gaussian_charFun_integrable := gaussian_charFun_integrable hδ
+      have : charFun (gaussianReal 0 δ) = (fun t:ℝ ↦ cexp (- δ * ↑t ^ 2 / 2)) := by
+        ext t
+        rw [charFun_gaussianReal]
+        simp
+        field_simp
+      rw [this, show (fun t:ℝ ↦ cexp (-δ * t^2/2)) = (fun t:ℝ ↦ (Real.exp (-δ * t^2/2):ℂ )) by simp] at gaussian_charFun_integrable
+      let h := fun t ↦ Real.exp (-δ * t^2/2)
+      use h
+
+      have exp_bd : ∀ t:ℝ, ‖cexp (-(↑↑δ * ↑t ^ 2 / 2))‖ = Real.exp (-δ * t^2/2) := by
+        intro t
+        simp
+        rw [norm_exp]
+        field_simp
+        simp
+        left
+        rw [← Complex.ofReal_pow]
+        exact ofReal_re (t ^ 2)
+      constructor
+      · exact Integrable.iff_ofReal.mpr gaussian_charFun_integrable
+      · constructor
+        · intro n t
+          rw [charFun_conv, Complex.norm_mul]
+          have bd := norm_charFun_le_one (μ := ν n) t
+          have : 0 ≤ ‖charFun (gaussianReal 0 δ) t‖ := Complex.norm_nonneg (charFun (gaussianReal 0 δ) t)
+          apply le_trans (mul_le_mul_of_nonneg_right bd this)
+          unfold h
+          simp [charFun_gaussianReal, exp_bd t]
+        · intro t
+          rw [charFun_conv, Complex.norm_mul]
+          have bd := norm_charFun_le_one (μ := μ) t
+          have : 0 ≤ ‖charFun (gaussianReal 0 δ) t‖ := Complex.norm_nonneg (charFun (gaussianReal 0 δ) t)
+          apply le_trans (mul_le_mul_of_nonneg_right bd this)
+          unfold h
+          simp [charFun_gaussianReal, exp_bd t]
 
 
     apply tendsto_sub_nhds_zero_iff.mp
