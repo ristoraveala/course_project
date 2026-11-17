@@ -635,6 +635,9 @@ lemma lipschitz_bdd_unif_approx {L : ℝ≥0} {f : ℝ → ℝ} {δ:ℝ≥0} (f_
   |∫ x:ℝ, f x ∂μ - ∫ x:ℝ, f x ∂(μ ∗ (γ δ))| ≤ L * √δ := by
 
   unfold conv
+
+  /- We write the assumptions on f in a more convenient form.
+     They are given as they are in the theorem statement so that they work nicely at a later stage. -/
   have f_bound_one_point : ∃ M:ℝ, ∀ x:ℝ, |f x| ≤ M := by
     obtain ⟨C,pC⟩ := f_bdd
     use C + |f 0|
@@ -646,12 +649,14 @@ lemma lipschitz_bdd_unif_approx {L : ℝ≥0} {f : ℝ → ℝ} {δ:ℝ≥0} (f_
   obtain ⟨M,pM⟩ := f_bound_one_point
   have f_cts := LipschitzWith.continuous f_Lipschitz
 
+  -- We need a bunch of measurability lemmas...
   have sum_measurable : AEMeasurable (fun x ↦ x.1 + x.2) (μ.prod (γ δ)) := by measurability
   have integrand_stmeasurable : AEStronglyMeasurable f (map (fun x ↦ x.1 + x.2) (μ.prod (γ δ))) := by
     apply Continuous.aestronglyMeasurable
     exact LipschitzWith.continuous f_Lipschitz
   rw [integral_map sum_measurable integrand_stmeasurable]
 
+  -- And a bunch of integrability lemmas.
   have integrable_f : Integrable f μ := by
     apply Integrable.of_bound
     exact Continuous.aestronglyMeasurable f_cts
@@ -674,6 +679,7 @@ lemma lipschitz_bdd_unif_approx {L : ℝ≥0} {f : ℝ → ℝ} {δ:ℝ≥0} (f_
     intro x
     exact pM (x.1+x.2)
 
+  -- To prove this simple rewrite, we need to know that γ δ = gaussianReal 0 δ is a probability measure.
   have : ∫ x:ℝ, f x ∂μ = ∫ x:ℝ×ℝ, f x.1 ∂ μ.prod (γ δ) := by
     have : SFinite (γ δ) := by rw [γ] ; exact instSFiniteOfSigmaFinite
     rw [integral_prod_symm (fun x:ℝ×ℝ ↦ f x.1) integrable_f_circ_proj]
@@ -683,7 +689,10 @@ lemma lipschitz_bdd_unif_approx {L : ℝ≥0} {f : ℝ → ℝ} {δ:ℝ≥0} (f_
     simp [this, show ∫ (y : ℝ), (1:ℝ) ∂γ δ = 1 by rw [γ] ; simp]
 
   rw [this, ← integral_sub integrable_f_circ_proj integrable_f_circ_sum]
+
+  -- Now we obtain the goal by estimating |f x.1 - f (x.1 + x.2)| ≤ L * |x.2| and estimating ∫ y, |y| γ δ ≤ √δ.
   apply le_trans abs_integral_le_integral_abs
+
   have lip_bd : (fun x:ℝ×ℝ ↦ |f x.1 - f (x.1 + x.2)|) ≤ (fun x:ℝ×ℝ ↦ L * |x.2|) := by
     intro x
     simp
@@ -743,6 +752,8 @@ lemma lipschitz_bdd_unif_approx {L : ℝ≥0} {f : ℝ → ℝ} {δ:ℝ≥0} (f_
   have claim_up_to_const := (sq_le_sq₀ int_ge_0 δ_ge_0).mp ineq
   have : 0 ≤ ↑L := by exact zero_le
   exact mul_le_mul_of_nonneg_left claim_up_to_const this
+
+
 
 -- Remove these when done.
 #check tendsto_iff_forall_lipschitz_integral_tendsto
