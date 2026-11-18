@@ -20,7 +20,7 @@ noncomputable section general_lemmas
 lemma charFun_zero_eq_one : charFun μ 0 = 1 := by simp [charFun_zero μ]
 
 lemma charFun_cts : Continuous (charFun μ) := by
-  apply continuous_of_dominated
+  apply continuous_of_dominated (bound := fun (x:ℝ) ↦ (1:ℝ))
   have : ∀ (x : ℝ), AEStronglyMeasurable (fun a ↦ cexp ((inner ℝ a x) * I)) μ := by
     measurability
   apply this
@@ -113,7 +113,6 @@ lemma taylor_of_param_integral {f : ℝ → ℝ → ℂ} {R : ℝ → ℝ → �
       -- Now field_simp does the trick, and we have proven the linearity.
       intro x
       field_simp
-
     rw [this]
     apply integral_congr_ae
     apply Filter.Eventually.of_forall
@@ -123,7 +122,7 @@ lemma taylor_of_param_integral {f : ℝ → ℝ → ℂ} {R : ℝ → ℝ → �
     constructor
     · have : ε = fun θ:ℝ ↦ ∫ x, R θ x ∂μ := rfl
       rw[this]
-      apply continuous_of_dominated -- Now we must prove that the conditions of the theorem are met.
+      apply continuous_of_dominated (bound := fun x ↦ |C₁| * |x|^n) -- Now we must prove that the conditions of the theorem are met.
       -- At first: ∀ (x : ℝ), AEStronglyMeasurable (R x) μ
       measurability
       -- Then: the bound
@@ -218,8 +217,7 @@ lemma snd_taylor_charFun (snd_moment : Integrable (fun x:ℝ ↦ |x|^2) μ) :
    iIndepFun.charFun_map_fun_sum_eq_prod, but we just state it in a slightly more convenient form. -/
 
 lemma indep_sum_charFun {Ω : Type*} [MeasureSpace Ω] [IsProbabilityMeasure (ℙ : Measure Ω)] {Y : ℕ → Ω → ℝ}
-  (measurable : ∀ (j:ℕ), AEMeasurable (Y j)) (indep : iIndepFun Y ℙ) (n : ℕ) :
-  charFun (map (fun ω ↦ ∑ k : Icc 1 n, Y k ω) ℙ) = ∏ k : Icc 1 n, charFun (map (Y k) ℙ) := by
+  (measurable : ∀ (j:ℕ), AEMeasurable (Y j)) (indep : iIndepFun Y ℙ) (n : ℕ) : charFun (map (fun ω ↦ ∑ k : Icc 1 n, Y k ω) ℙ) = ∏ k : Icc 1 n, charFun (map (Y k) ℙ) := by
   have measurable' : ∀ j : Icc 1 n,  AEMeasurable (Y j) := by intro j ; exact measurable j
   have indep' : iIndepFun (fun i:Icc 1 n ↦ Y i) ℙ := iIndepFun_iff_finset.mp indep (Icc 1 n)
   exact iIndepFun.charFun_map_fun_sum_eq_prod measurable' indep'
@@ -407,7 +405,7 @@ lemma charFun_pointwise_convergence_with_densities (charFuns_converge : ∀ t:�
   have : ∫ x:ℝ, (0:ℂ) ∂volume = 0 := integral_zero ℝ ℂ
   rw [← this]
   -- The assumptions are so that we can now just use dominated convergence.
-  apply tendsto_integral_filter_of_dominated_convergence
+  apply tendsto_integral_filter_of_dominated_convergence (bound := fun t ↦ 2 * g (-2*π*t))
   apply Filter.Eventually.of_forall
   intro n
   measurability
@@ -493,7 +491,6 @@ lemma charFun_convergence_with_densities (charFuns_converge : ∀ t:ℝ, Tendsto
     simp
     exact abs_value_min (p n x).toReal (f x).toReal
   rw [this]
-
   -- Now with the correctly formulated limit, we can use dominated convergence.
   have limit_by_dominated : Tendsto (fun n ↦ 2 * ∫ x:ℝ, ((p n x).toReal) ⊓ ((f x).toReal) ∂volume) atTop (𝓝 (2:ℝ)) := by
     have : (2:ℝ)*1 =2 := (MulOneClass.mul_one 2)
@@ -501,7 +498,7 @@ lemma charFun_convergence_with_densities (charFuns_converge : ∀ t:ℝ, Tendsto
     apply Tendsto.const_mul 2
     rw [← integral_of_density_eq_one μ f_measurable exists_density_μ]
     -- Now the result follows by dominated convergence: we just have to make sure that the hypotheses work.
-    apply tendsto_integral_filter_of_dominated_convergence
+    apply tendsto_integral_filter_of_dominated_convergence (bound := fun x ↦ (f x).toReal)
     -- First we prove a measurability hypothesis.
     apply Filter.Eventually.of_forall
     intro n
@@ -824,11 +821,9 @@ lemma charFun_convergence_Lipschitz {f : ℝ → ℝ} (charFuns_converge : ∀ t
   have f_Lipschitz' : LipschitzWith L f := lipschitzOnWith_univ.mp fun ⦃x⦄ a ⦃y⦄ a_1 ↦ pL x y
   have f_cts : Continuous f := LipschitzWith.continuous pL
   have f_meas : Measurable f := Continuous.borel_measurable f_cts
-  apply NormedAddCommGroup.tendsto_atTop.mpr
-  intro ε hε
-  simp
   let charFun_conv_convergence := fun δ:ℝ≥0 ↦ charFuns_convergence_densities μ δ charFuns_converge
-  let convolution_bdd := fun (δ:ℝ≥0) ↦ (lipschitz_bdd_unif_approx (δ := δ) μ f_bdd f_Lipschitz')
+  let convolution_bdd_μ := fun (δ:ℝ≥0) ↦ (lipschitz_bdd_unif_approx (δ := δ) μ f_bdd f_Lipschitz')
+  let convolution_bdd_ν := fun (n:ℕ) ↦ (fun (δ:ℝ≥0) ↦ (lipschitz_bdd_unif_approx (δ := δ) (ν n) f_bdd f_Lipschitz'))
   /- This is the key lemma. It is a direct consequence of charFun_convergence_with_densities and onvergence_densities_in_L1_implies_weak_convergence,
      once we have shown that the assumptions of the two lemmas hold. -/
   have conv_limit_exists : ∀δ:ℝ≥0, δ≠0 → Tendsto (fun n ↦ ∫ x, f x ∂ (ν n ∗ (gaussianReal 0 δ)) - ∫ x, f x ∂(μ ∗ (gaussianReal 0 δ))) atTop (𝓝 0) := by
@@ -902,26 +897,56 @@ lemma charFun_convergence_Lipschitz {f : ℝ → ℝ} (charFuns_converge : ∀ t
           simp [charFun_gaussianReal, exp_bd t]
     have := charFun_convergence_with_densities (μ ∗ gaussianReal 0 δ) p_meas p_cts' g_meas g_cts' (charFun_conv_convergence δ) exists_densities exists_density charFuns_dominated
     exact convergence_densities_in_L1_implies_weak_convergence p_meas p_cts' g_meas g_cts' this f_bdd f_meas
-  -- End of proof of conv_limit_exists
-  -- Now extract N by using conv_limit_exists as well as convolution_bdd
-
-  sorry
-
--- Remove these when done.
-#check tendsto_iff_forall_lipschitz_integral_tendsto
-#check conv μ (γ 1)
-#check conv_withDensity_eq_lconvolution
-#check conv_absolutelyContinuous
-#check withDensity_absolutelyContinuous
-#check gaussianReal_of_var_ne_zero
-
-
-#check ProbabilityTheory.gaussianPDF_def
-#check gaussianPDFReal 0 1
-#check MeasureTheory.conv_withDensity_eq_lconvolution
-#check MeasureTheory.rnDeriv_ae_eq_condExp
-#check conv_absolutelyContinuous
-#check absolutelyContinuous_iff_withDensity_rnDeriv_eq
-#check rnDeriv (γ 1) volume
+  apply tendsto_sub_nhds_zero_iff.mp
+  show Tendsto (fun n ↦ ∫ x, f x ∂ν n - ∫ x, f x ∂μ) atTop (𝓝 0)
+  let F : ℕ → ℕ → ℝ := fun m ↦ (fun n ↦ ∫ x, f x ∂((ν n) ∗ gaussianReal 0 (1/(m+1))) - ∫ x, f x ∂(μ ∗ gaussianReal 0 (1/(m+1))))
+  have unif_approx_mollification : TendstoUniformly F (fun n ↦ ∫ x, f x ∂ν n - ∫ x, f x ∂μ) atTop := by
+    apply Metric.tendstoUniformly_iff.mpr
+    intro ε hε
+    have : ∃ N:ℕ , 2 * L * √(1/(N+1)) < ε := by
+      have : Tendsto (fun (N:ℕ) ↦ (2:ℝ) * L * √(1/(N+1))) atTop (𝓝 0) := by
+        rw [show (0:ℝ) = ((2*L)*0:ℝ) by simp]
+        apply Tendsto.const_mul ((2:ℝ)*L)
+        simp
+        rw [show (fun (n:ℕ) ↦ (√(n + 1))⁻¹) = (fun r:ℝ ↦ r⁻¹) ∘ (fun n:ℕ ↦ √(n+1)) by ext n; simp]
+        have : Tendsto (fun (n:ℕ) ↦ √(n+1)) atTop atTop := by
+          have : Tendsto (fun n:ℕ ↦ (n:ℝ) + 1) atTop atTop := by
+            apply Tendsto.atTop_add_nonneg
+            exact tendsto_natCast_atTop_atTop
+            simp
+          exact Tendsto.comp Real.tendsto_sqrt_atTop this
+        exact Tendsto.comp tendsto_inv_atTop_zero this
+      obtain ⟨N,pN⟩ := Metric.tendsto_atTop.mp this ε hε
+      use N
+      have := pN N (le_refl N)
+      sorry
+    obtain ⟨N, pN⟩ := this
+    filter_upwards [Filter.eventually_ge_atTop N] with n hn
+    intro m
+    rw [Real.dist_eq]
+    unfold F
+    have : |∫ (x : ℝ), f x ∂ν m - ∫ (x : ℝ), f x ∂μ - (∫ (x : ℝ), f x ∂(ν m ∗ gaussianReal 0 (1 / (n + 1))) - ∫ (x : ℝ), f x ∂μ ∗ gaussianReal 0 (1 / (n + 1)))|
+      = |∫ (x : ℝ), f x ∂ν m - ∫ (x : ℝ), f x ∂ν m ∗ gaussianReal 0 (1 / (n + 1))  - (∫ (x : ℝ), f x ∂μ - ∫ (x : ℝ), f x ∂μ ∗ gaussianReal 0 (1 / (n + 1)))| := by
+      apply congr_arg abs
+      ring
+    rw [this]
+    have h1 : |∫ (x : ℝ), f x ∂ν m - ∫ (x : ℝ), f x ∂ν m ∗ gaussianReal 0 (1 / (n + 1))| ≤ L * √(1/(n+1)) := convolution_bdd_ν m (1/(n+1))
+    have h2 : |∫ (x : ℝ), f x ∂μ - ∫ (x : ℝ), f x ∂μ ∗ gaussianReal 0 (1 / (n + 1))| ≤ L * √(1/(n+1)) := convolution_bdd_μ (1/(n+1))
+    have : |∫ (x : ℝ), f x ∂ν m - ∫ (x : ℝ), f x ∂ν m ∗ gaussianReal 0 (1 / (n + 1))| + |∫ (x : ℝ), f x ∂μ - ∫ (x : ℝ), f x ∂μ ∗ gaussianReal 0 (1 / (n + 1))| < ε := by
+      have triangle_ineq_consequence := add_le_add h1 h2
+      rw [show L * √(1 / (n + 1)) + L * √(1 / (n + 1)) = 2 * L * √(1 / (n + 1)) by ring] at triangle_ineq_consequence
+      have : 2 * L * √(1 / (n + 1)) ≤ 2 * L * √(1 / (N + 1)) := by gcongr
+      have := le_trans triangle_ineq_consequence this
+      exact lt_of_le_of_lt this pN
+    apply lt_of_le_of_lt _ this
+    apply abs_sub
+  have conv_limit_F : ∀ᶠ (i : ℕ) in atTop, Tendsto (F i) atTop (𝓝 0) := by
+    apply Filter.Eventually.of_forall
+    intro m
+    unfold F
+    have : ((1/(m+1)):ℝ≥0) ≠ 0 := by simp
+    exact conv_limit_exists (1/(m+1)) this
+  have : Tendsto (fun (n:ℕ) ↦ (0:ℝ)) atTop (𝓝 0) := tendsto_const_nhds
+  exact TendstoUniformly.tendsto_of_eventually_tendsto unif_approx_mollification conv_limit_F this
 
 end charFun_convergence
