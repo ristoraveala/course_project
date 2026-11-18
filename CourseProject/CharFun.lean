@@ -70,11 +70,9 @@ lemma taylor_of_param_integral {f : ℝ → ℝ → ℂ} {R : ℝ → ℝ → �
   · -- At first we prove that the remainder formula is valid.
     ext θ
     rw [ε_def]
-
     -- We need to apply the linearity of integral; there is some work to be done because all of the relevant lemmas need integrability.
     have : ∑ k ∈ Icc 0 n, (c k * θ ^ k * ∫ (x : ℝ), x^k ∂μ) + (θ:ℝ) ^ n * ∫ (x : ℝ), R θ x ∂μ
       = ∫ x, ((∑ k ∈ Icc 0 n, (c k)* θ ^ k * x^k) + (θ:ℝ) ^ n * R θ x )∂μ := by
-
       -- We prove that each term of the sum is integrable.
       have terms_integrable : ∀ k ∈ Icc 0 n , Integrable (fun x:ℝ ↦ (c k) * θ ^ k * x ^ k) μ := by
         intro k hk
@@ -83,11 +81,9 @@ lemma taylor_of_param_integral {f : ℝ → ℝ → ℂ} {R : ℝ → ℝ → �
         apply (integrable_norm_iff this).mp
         rw [show (fun a:ℝ ↦ ‖(a:ℂ) ^ k‖) = fun a:ℝ ↦ |a|^k by ext a; simp]
         exact integrable_norm_pow_of_le aestronglyMeasurable_id (Finset.mem_Icc.mp hk).2 moments
-
       -- It is an easy consequence of the previous result that the sum of the terms is integrable.
       have sum_integrable : Integrable (fun x:ℝ ↦ ∑ k ∈ Icc 0 n , (c k) * θ ^ k * x ^ k) μ
         := integrable_finsetSum (Icc 0 n) terms_integrable
-
       -- and finally the remainder function must be shown to be integrable, this is what the condition "moments" is for.
       have remainder_integrable : Integrable (fun x:ℝ ↦ (θ:ℝ) ^ n * R θ x) μ := by
         apply Integrable.const_mul
@@ -99,27 +95,21 @@ lemma taylor_of_param_integral {f : ℝ → ℝ → ℂ} {R : ℝ → ℝ → �
           simp
           exact pC₁ θ
         exact Integrable.mono bound_is_integrable Rθ_AEStronglymeasurable ae_bdd
-
       -- Now we can use the linearity of integral.
       simp [integral_add sum_integrable remainder_integrable,
         integral_const_mul (L := ℂ) (θ ^ n) (R θ),
         integral_finsetSum (Icc 0 n) terms_integrable]
-
       -- Both sides of the equality are expressed as a sum over k, by Finset.sum_congr we reduce into comparison of each term in the sums.
       have : Icc 0 n = Icc 0 n := rfl
       apply sum_congr this
-
       intro k hk
       rw [show c k * (θ:ℝ) ^ k * (∫ (x : ℝ), x ^ k ∂μ : ℝ) = c k * ∫ x, θ ^ k * x ^k ∂μ by simp [integral_const_mul, mul_assoc]]
-
       -- Next we will use linearity of intergal and integral_congr_ae to reduce to the claim that the integrands agree.
       have : ∫ (x : ℝ), θ ^ k * x ^ k ∂μ = ∫ (x : ℝ), (θ:ℂ)^k * (x:ℂ)^k ∂μ := by
         rw [show (fun x:ℝ ↦ (θ:ℂ)^k * (x:ℂ)^k)= (fun x:ℝ ↦ ↑ (θ ^ k * x ^ k)) by ext x; simp, integral_complex_ofReal]
       rw [this, ← integral_const_mul (μ := μ) (c k) (fun x:ℝ ↦ θ ^ k * x^k)]
-
       apply integral_congr_ae
       apply Filter.Eventually.of_forall
-
       -- Now field_simp does the trick, and we have proven the linearity.
       intro x
       field_simp
@@ -163,9 +153,7 @@ lemma exp_it_taylor : (fun θ:ℝ ↦ (fun x:ℝ ↦ cexp (inner ℝ θ x * I) )
 lemma snd_taylor_charFun (snd_moment : Integrable (fun x:ℝ ↦ |x|^2) μ) :
   ∃ ε : ℝ → ℂ, Continuous ε ∧ ε 0 = 0
   ∧ charFun μ = fun (t:ℝ) ↦ 1 + I * t * ∫ x, x ∂μ - (1/2) * t ^2 * ∫ x, x^2 ∂μ + t^2 * ε t := by
-
   set R := fun θ:ℝ ↦ (fun x:ℝ ↦ - ∫ u in 0..x, (∫ v in 0..u,  cexp (I*θ*v) - 1 ∂volume) ∂volume) with R_def
-
   have R_bdd : ∃ C₁:ℝ, ∀ θ x : ℝ, ‖R θ x‖ ≤ |C₁| * |x|^2 := by
     use 2
     intro θ x
@@ -185,9 +173,7 @@ lemma snd_taylor_charFun (snd_moment : Integrable (fun x:ℝ ↦ |x|^2) μ) :
       have := intervalIntegral.norm_integral_le_of_norm_le_const this
       apply le_trans this
       grind
-
     have integral_bd := intervalIntegral.norm_integral_le_of_norm_le_const this
-
     simp [show 2 * |x| * |x| = 2 * x^2 by grind] at integral_bd
     exact integral_bd
   have R_cts : Continuous (Function.uncurry R) := by fun_prop
@@ -195,21 +181,17 @@ lemma snd_taylor_charFun (snd_moment : Integrable (fun x:ℝ ↦ |x|^2) μ) :
     intro x
     rw [R_def]
     simp
-
   -- c 0 = 1, c 1 = I, c 2 = -1/2, and c n = 0 otherwise
   set c := fun n:ℕ ↦ (1 - n) ⊔ 0 + n * ((2-n) ⊔ 0) * I + ((n-1) ⊔ 0) * ((3-n) ⊔ 0) * (- 1/2) with c_def
-
   set f := (fun θ:ℝ ↦ (fun x:ℝ ↦ cexp (inner ℝ θ x * I))) with f_def
   have hf : f = (fun θ:ℝ ↦ (fun x:ℝ ↦ ∑ k ∈ Icc 0 2, ((c k) * θ ^ k * x ^k) + θ ^ 2 * R θ x)) := by
     rw [f_def, exp_it_taylor]
     ext θ x
     simp [sum_Icc_succ_top,c_def, R_def]
     grind
-
   have tf := (taylor_of_param_integral (f := f) (R := R) μ 2 c hf R_bdd R_cts R_zero) snd_moment
   obtain ⟨ε,pε⟩ := tf
   use ε
-
   constructor
   · exact pε.right.left
   · constructor
@@ -237,7 +219,7 @@ lemma snd_taylor_charFun (snd_moment : Integrable (fun x:ℝ ↦ |x|^2) μ) :
 
 lemma indep_sum_charFun {Ω : Type*} [MeasureSpace Ω] [IsProbabilityMeasure (ℙ : Measure Ω)] {Y : ℕ → Ω → ℝ}
   (measurable : ∀ (j:ℕ), AEMeasurable (Y j)) (indep : iIndepFun Y ℙ) (n : ℕ) :
-    charFun (map (fun ω ↦ ∑ k : Icc 1 n, Y k ω) ℙ) = ∏ k : Icc 1 n, charFun (map (Y k) ℙ) := by
+  charFun (map (fun ω ↦ ∑ k : Icc 1 n, Y k ω) ℙ) = ∏ k : Icc 1 n, charFun (map (Y k) ℙ) := by
   have measurable' : ∀ j : Icc 1 n,  AEMeasurable (Y j) := by intro j ; exact measurable j
   have indep' : iIndepFun (fun i:Icc 1 n ↦ Y i) ℙ := iIndepFun_iff_finset.mp indep (Icc 1 n)
   exact iIndepFun.charFun_map_fun_sum_eq_prod measurable' indep'
@@ -338,7 +320,6 @@ lemma charFun_eq_fourier {g : ℝ → ℝ≥0∞} (hg : Measurable g) (exists_de
     simp [this, exp_neg]
     field_simp
 
-
 lemma charFun_inversion {g : ℝ → ℝ≥0∞} (hg : Measurable g) (cts_g : Continuous (fun x ↦ ((g x).toReal:ℂ)))
   (exists_density : withDensity (volume:Measure ℝ) g = μ)
   (integrable_charFun : Integrable (charFun μ) volume):
@@ -373,10 +354,8 @@ lemma charFun_pointwise_convergence_with_densities (charFuns_converge : ∀ t:�
   (exists_densities_ν : ∀ n:ℕ, withDensity volume (p n) = (ν n)) (exists_density_μ : withDensity volume f = μ)
   (charFuns_dominated : ∃ g : ℝ → ℝ, Integrable g volume ∧ (∀ (n:ℕ) (t:ℝ), ‖charFun (ν n) t‖ ≤ g t) ∧ ∀ t, ‖charFun μ t‖ ≤ g t) :
   ∀ x : ℝ, Tendsto (fun n ↦ ((p n x).toReal - ((f x).toReal):ℂ)) atTop (𝓝 0) := by
-
   -- Some preliminary parts
   obtain ⟨g,pg⟩ := charFuns_dominated
-
   have charFuns_ν_integrable : ∀ n:ℕ, Integrable (charFun (ν n)) volume := by
     intro n
     have bdd : ∀ᵐ (x : ℝ) ∂volume, ‖charFun (ν n) x‖ ≤ g x := by
@@ -384,14 +363,12 @@ lemma charFun_pointwise_convergence_with_densities (charFuns_converge : ∀ t:�
       exact pg.right.left n
     have h_measurable : AEStronglyMeasurable (charFun (ν n)) volume := by measurability
     exact Integrable.mono' pg.left h_measurable bdd
-
   have charFun_μ_integrable : Integrable (charFun μ) volume := by
     have bdd :  ∀ᵐ (x : ℝ) ∂volume, ‖charFun μ x‖ ≤ g x := by
       apply Filter.Eventually.of_forall
       exact pg.right.right
     have h_measurable : AEStronglyMeasurable (charFun μ) volume := by measurability
     exact Integrable.mono' pg.left h_measurable bdd
-
   -- The main proof begins.
   intro x
   -- Now we apply the inversion formula.
@@ -402,7 +379,6 @@ lemma charFun_pointwise_convergence_with_densities (charFuns_converge : ∀ t:�
     rw [congr_fun this x]
     have := charFun_inversion μ f_measurable f_cts exists_density_μ charFun_μ_integrable
     rw [congr_fun this x]
-
     have cexp_bdd : ∀ᵐ (ξ : ℝ) ∂volume, ‖(fun ξ:ℝ ↦ cexp (2 * ↑π * I * ↑x* ↑ξ)) ξ‖ ≤ 1 := by
       apply Filter.Eventually.of_forall
       intro ξ
@@ -412,35 +388,29 @@ lemma charFun_pointwise_convergence_with_densities (charFuns_converge : ∀ t:�
       have := norm_exp_I_mul_ofReal (2*π*x*ξ)
       exact le_of_eq this
     have cexp_meas : AEStronglyMeasurable (fun ξ:ℝ ↦ cexp (2 * ↑π * I * ↑x* ↑ξ)) volume := by measurability
-
     have integrable_n : Integrable (fun ξ:ℝ ↦ cexp (2 * ↑π * I * ↑x* ↑ξ) * charFun (ν n) (-2 * π * ξ)) volume := by
       have : Integrable (fun ξ:ℝ ↦ charFun (ν n) (-2 * π * ξ)) volume := by
         have : -2*π ≠ 0 := by norm_num
         exact Integrable.comp_mul_left' (charFuns_ν_integrable n) this
       exact Integrable.bdd_mul this cexp_meas cexp_bdd
-
     have integrable_μ : Integrable (fun ξ:ℝ ↦ cexp (2 * ↑π * I * ↑x * ↑ξ) * charFun μ (-2 * π * ξ)) volume := by
       have : Integrable (fun ξ:ℝ ↦ charFun μ (-2 * π * ξ)) volume := by
         have : -2*π ≠ 0 := by norm_num
         exact Integrable.comp_mul_left' charFun_μ_integrable this
       exact Integrable.bdd_mul this cexp_meas cexp_bdd
-
     rw [← integral_sub integrable_n integrable_μ]
     apply integral_congr_ae
     apply Filter.Eventually.of_forall
     intro ξ
     field_simp
-
   rw [this]
   have : ∫ x:ℝ, (0:ℂ) ∂volume = 0 := integral_zero ℝ ℂ
   rw [← this]
-
   -- The assumptions are so that we can now just use dominated convergence.
   apply tendsto_integral_filter_of_dominated_convergence
   apply Filter.Eventually.of_forall
   intro n
   measurability
-
   -- Then we prove that 2*g is the suitable bound.
   apply Filter.Eventually.of_forall
   intro n
@@ -458,11 +428,9 @@ lemma charFun_pointwise_convergence_with_densities (charFuns_converge : ∀ t:�
     rw [this] at integrand_bd
     exact integrand_bd
   exact this
-
   -- The bound x ↦ 2*g(-2 * π x) must be integrable.
   have : -2*π ≠ 0 := by norm_num
   exact Integrable.const_mul (Integrable.comp_mul_left' pg.left this) (2:ℝ)
-
   -- Finally we prove that inside the integral the convergence happens poinwise.
   apply Filter.Eventually.of_forall
   intro t
@@ -475,12 +443,16 @@ lemma charFun_pointwise_convergence_with_densities (charFuns_converge : ∀ t:�
 -- In the lemma below, the application of dominated convergence needs the following elementary lemma.
 lemma abs_value_min (a b : ℝ) : |a-b| = a + b - 2*(a ⊓ b) := by grind
 
+/- The key point is that to obtain L¹-convergence from the above proven pointwise (in fact, uniform) convergence, we must write, using
+   abs_value_min, ∫ |p n - f| dx = ∫ p n dx + ∫ f dx - 2 * ∫ (p n) ⊓ f dx = 2 - 2 * ∫ (p n) ⊓ f dx. Then we can apply dominated convergence
+   for the last term. Thus it is important that we prove the L¹-convergence p n → f first, and only consider the weak convergence of measures
+   after that. -/
+
 include p_measurable p_cts f_measurable f_cts in
 lemma charFun_convergence_with_densities (charFuns_converge : ∀ t:ℝ, Tendsto (fun n ↦ (charFun (ν n) t)) atTop (𝓝 (charFun μ t)))
   (exists_densities_ν : ∀ n:ℕ, withDensity volume (p n) = (ν n)) (exists_density_μ : withDensity volume f = μ)
   (charFuns_dominated : ∃ g : ℝ → ℝ, Integrable g volume ∧ (∀ (n:ℕ) (t:ℝ), ‖charFun (ν n) t‖ ≤ g t) ∧ ∀ t, ‖charFun μ t‖ ≤ g t) :
   Tendsto (fun n ↦ ∫x:ℝ, |(p n x).toReal - (f x).toReal| ∂volume) atTop (𝓝 0) := by
-
   -- This is a key step: we rewrite the difference so that we can apply dominated convergence to the RHS.
   have : (fun n ↦ ∫x:ℝ, |(p n x).toReal - (f x).toReal| ∂volume)
     = (fun n ↦ 2 - 2 * ∫ x:ℝ, ((p n x).toReal) ⊓ ((f x).toReal) ∂volume) := by
@@ -490,11 +462,9 @@ lemma charFun_convergence_with_densities (charFuns_converge : ∀ t:ℝ, Tendsto
       simp
       norm_num
     rw [this]
-
     -- We replace both 1's as the integrals of suitable densities here. In this part we need that p n and f are densities of probability measures.
     nth_rw 1 [← integral_of_density_eq_one (ν n) (p_measurable n) (exists_densities_ν n)]
     rw [← integral_of_density_eq_one μ f_measurable exists_density_μ]
-
     -- We use linearity of integral to write both sides of the equation as ∫ (something). This is probabily a bit clumsily written...
     have : ((∫ (x : ℝ), (p n x).toReal ∂volume) + ∫ (x : ℝ), (f x).toReal ∂volume) - 2 * ∫ (x : ℝ), min (p n x).toReal (f x).toReal ∂volume
       = ∫ (x : ℝ), (p n x).toReal + (f x).toReal - 2 *  min (p n x).toReal (f x).toReal ∂volume := by
@@ -516,7 +486,6 @@ lemma charFun_convergence_with_densities (charFuns_converge : ∀ t:ℝ, Tendsto
       rw [← this]
       grind
     rw [this]
-
     -- At this point we are ready to reduce the claim to an application of the abs_value_min lemma.
     apply integral_congr_ae
     apply Filter.Eventually.of_forall
@@ -531,13 +500,12 @@ lemma charFun_convergence_with_densities (charFuns_converge : ∀ t:ℝ, Tendsto
     nth_rw 2 [← this]
     apply Tendsto.const_mul 2
     rw [← integral_of_density_eq_one μ f_measurable exists_density_μ]
+    -- Now the result follows by dominated convergence: we just have to make sure that the hypotheses work.
     apply tendsto_integral_filter_of_dominated_convergence
-
     -- First we prove a measurability hypothesis.
     apply Filter.Eventually.of_forall
     intro n
     measurability
-
     -- Then we prove a bound.
     apply Filter.Eventually.of_forall
     intro n
@@ -549,30 +517,75 @@ lemma charFun_convergence_with_densities (charFuns_converge : ∀ t:ℝ, Tendsto
     rw [Real.norm_of_nonneg this]
     have : min (p n x).toReal (f x).toReal ≤ (f x).toReal := by exact Std.min_le_right
     exact this
-
     -- Now we prove the integrability claim, which is already established earlier.
     have := integrable_density μ f_measurable exists_density_μ
     exact Integrable.iff_ofReal.mpr this
-
     -- Finally we prove pointwise convergence of the integrand.
     apply Filter.Eventually.of_forall
     intro x
     have := charFun_pointwise_convergence_with_densities μ p_measurable p_cts f_measurable f_cts
-                              charFuns_converge exists_densities_ν exists_density_μ charFuns_dominated x
+                charFuns_converge exists_densities_ν exists_density_μ charFuns_dominated x
     have := Tendsto.add_const ↑(f x).toReal this
     simp at this
     rw [tendsto_ofReal_iff] at this
     exact Filter.Tendsto.min_left this
-
   -- Now we have essentially proved the result, we just need to do some shuffling.
   have : Tendsto (fun n:ℕ ↦ (2:ℝ)) atTop (𝓝 2) := tendsto_const_nhds
   have := Tendsto.sub this limit_by_dominated
   simp at this
   exact this
 
-/- We will now begin to work with the convolution of μ with a Gaussian measure, which we shall call γ.
-   We allow the singular case δ = 0 to avoid type issues. -/
+-- At more than one point in the coming, the following straightforward lemma, which allows to convert two meanings of "boundedness", is useful.
+lemma bounded_implies_bounded {g : ℝ → ℝ} (g_bdd : ∃C ,  ∀ (x y : ℝ), dist (g x) (g y) ≤ C) : ∃ M, ∀ x:ℝ, |g x| ≤ M := by
+  obtain ⟨C,pC⟩ := g_bdd
+  let M := C + |g 0|
+  use M
+  intro x
+  have := pC x 0
+  rw [Real.dist_eq] at this
+  have triangle_consequence : |g x| ≤ |g x - g 0| + |g 0| := by grind
+  exact le_trans triangle_consequence (add_le_add_left this |g 0|)
 
+-- Now as a consequence of the previous result, we get the following lemma, from which the claim that the lemmas name makes is a straightforward conseqence.
+include p_measurable p_cts f_measurable f_cts in
+lemma convergence_densities_in_L1_implies_weak_convergence {g:ℝ → ℝ} (hL1_convergence : Tendsto (fun n ↦ ∫ x:ℝ, |(p n x).toReal - (f x).toReal| ∂volume) atTop (𝓝 0))
+  (g_bdd : ∃C ,  ∀ (x y : ℝ), dist (g x) (g y) ≤ C) (g_meas : Measurable g) :
+  Tendsto (fun n ↦ ∫ x:ℝ, g x * (p n x).toReal ∂volume - ∫ x:ℝ, g x * (f x).toReal ∂volume) atTop (𝓝 0) := by
+  obtain ⟨M,pM⟩ := bounded_implies_bounded g_bdd
+  have integrable_gpn : ∀ n, Integrable (fun x ↦ g x * (p n x).toReal) volume := sorry
+  have integrable_gf : Integrable (fun x ↦ g x * (f x).toReal) := sorry
+  have : (fun n ↦ ∫ x:ℝ, g x * (p n x).toReal ∂volume - ∫ x:ℝ, g x * (f x).toReal ∂volume) = (fun n ↦ ∫ x:ℝ, g x * ((p n x).toReal - (f x).toReal) ∂volume) := by
+    ext n
+    rw [Eq.symm (integral_sub (integrable_gpn n) integrable_gf)]
+    apply integral_congr_ae
+    apply Filter.Eventually.of_forall
+    grind
+  rw [this]
+  apply (tendsto_zero_iff_abs_tendsto_zero (fun n ↦ ∫ x:ℝ, g x * ((p n x).toReal - (f x).toReal) ∂volume)).mpr
+  have non_neg : ∀ n, (abs ∘ fun n ↦ ∫ (x : ℝ), g x * ((p n x).toReal - (f x).toReal)) n ≥ 0 := by simp
+  have : ∀ n, (abs ∘ fun n ↦ ∫ (x : ℝ), g x * ((p n x).toReal - (f x).toReal)) n ≤ |M| * ∫ x:ℝ, |(p n x).toReal - (f x).toReal| ∂volume := by
+    intro n
+    simp
+    apply le_trans abs_integral_le_integral_abs
+    simp
+    have bdd : (fun x:ℝ ↦ |g x| * |(p n x).toReal - (f x).toReal|) ≤ (fun x:ℝ ↦ |M| * |(p n x).toReal - (f x).toReal|) := by
+      intro x
+      simp
+      have non_neg : 0 ≤ |(p n x).toReal - (f x).toReal| := abs_nonneg ((p n x).toReal - (f x).toReal)
+      have : |g x| ≤ |M| := le_trans (pM x) (le_abs_self M)
+      exact mul_le_mul_of_nonneg_right this non_neg
+    have hg : Integrable (fun x:ℝ ↦ |M| * |(p n x).toReal - (f x).toReal|) := sorry
+    have hf : Integrable (fun x:ℝ ↦ |g x| * |(p n x).toReal - (f x).toReal|) := sorry
+    apply le_trans (integral_mono hf hg bdd)
+    rw [integral_const_mul]
+  apply squeeze_zero non_neg this
+  have := Tendsto.const_smul_zero (|M|:ℝ) hL1_convergence
+  simp at this
+  exact this
+
+/- We will now begin to work with the convolution of μ with a Gaussian measure.
+   The following lemma explains why: in this way we obtain a density for our measure. -/
+-- TODO: add comments
 lemma gaussian_conv_has_density {δ:ℝ≥0} (hδ : δ ≠ 0) : μ ∗ (gaussianReal 0 δ) = withDensity volume (fun x ↦ ∫⁻ y, gaussianPDF 0 δ (x - y) ∂μ) := by
   ext A
   have indi_measurable : Measurable (A.indicator (1:ℝ→ℝ≥0∞)) := by measurability
@@ -598,7 +611,6 @@ lemma gaussian_conv_has_density {δ:ℝ≥0} (hδ : δ ≠ 0) : μ ∗ (gaussian
     have := lintegral_sub_right_eq_self (μ := volume) (fun y ↦ (gaussianPDF 0 δ) y * A.indicator (1:ℝ→ℝ≥0∞) (x+y)) x
     simp at this
     rw [← this, ← lintegral_indicator]
-
     apply lintegral_congr_ae
     apply Filter.Eventually.of_forall
     intro y
@@ -609,21 +621,20 @@ lemma gaussian_conv_has_density {δ:ℝ≥0} (hδ : δ ≠ 0) : μ ∗ (gaussian
       unfold Set.EqOn
       intro a ha
       simp
-
     have : A.indicator (fun y ↦ (1:ℝ≥0∞)) y = A.indicator 1 y := congr_fun this y
     rw [this] at indicator_eq
     rw [← indicator_eq]
     simp
     measurability
   rw [lintegral_congr_ae this]
-
   have : AEMeasurable (Function.uncurry (fun x ↦ (fun y ↦ gaussianPDF 0 δ (y - x)))) (μ.prod (volume.restrict A)) := by measurability
   rw [lintegral_lintegral_swap this]
-
   -- some side goals
   exact indi_measurable
   exact set_measurable
   exact set_measurable
+
+-- TODO: add comments
 lemma gaussian_conv_density_cts {δ:ℝ≥0} (hδ : δ ≠0) : Continuous (fun x ↦ ∫⁻ y, gaussianPDF 0 δ (x - y) ∂μ) := by
   apply continuous_iff_continuousAt.mpr
   intro x
@@ -656,7 +667,6 @@ lemma gaussian_conv_density_cts {δ:ℝ≥0} (hδ : δ ≠0) : Continuous (fun x
     have := ENNReal.continuous_ofReal
     fun_prop
   exact Continuous.tendsto' this x (gaussianPDF 0 δ (x - a)) rfl
-
 
 lemma gaussian_charFun_integrable {δ:ℝ≥0} (hδ : δ ≠ 0) : Integrable (charFun (gaussianReal 0 δ)) volume := by
   have : charFun (gaussianReal 0 δ) = (fun t:ℝ ↦ cexp (- δ * ↑t ^ 2 / 2)) := by
@@ -693,13 +703,10 @@ lemma gaussian_conv_charFun_integrable {δ:ℝ≥0} (hδ : δ ≠ 0) : Integrabl
   intro x
   exact MeasureTheory.norm_charFun_le_one (μ := μ) x
 
-
 -- Next we show that for bounded Lipschitz functions, we can find a bound for ∫ f dμ - ∫ f d(μ ∗ γ δ) that is independent of μ.
 lemma lipschitz_bdd_unif_approx {L : ℝ≥0} {f : ℝ → ℝ} {δ:ℝ≥0} (f_bdd : ∃ C, ∀ (x y : ℝ), dist (f x) (f y) ≤ C) (f_Lipschitz : LipschitzWith L f):
   |∫ x:ℝ, f x ∂μ - ∫ x:ℝ, f x ∂(μ ∗ (gaussianReal 0 δ))| ≤ L * √δ := by
-
   unfold conv
-
   /- We write the assumptions on f in a more convenient form.
      They are given as they are in the theorem statement so that they work nicely at a later stage. -/
   have f_bound_one_point : ∃ M:ℝ, ∀ x:ℝ, |f x| ≤ M := by
@@ -712,14 +719,12 @@ lemma lipschitz_bdd_unif_approx {L : ℝ≥0} {f : ℝ → ℝ} {δ:ℝ≥0} (f_
     exact le_trans triangle_consequence (add_le_add_left this |f 0|)
   obtain ⟨M,pM⟩ := f_bound_one_point
   have f_cts := LipschitzWith.continuous f_Lipschitz
-
   -- We need a bunch of measurability lemmas...
   have sum_measurable : AEMeasurable (fun x ↦ x.1 + x.2) (μ.prod (gaussianReal 0 δ)) := by measurability
   have integrand_stmeasurable : AEStronglyMeasurable f (map (fun x ↦ x.1 + x.2) (μ.prod (gaussianReal 0 δ))) := by
     apply Continuous.aestronglyMeasurable
     exact LipschitzWith.continuous f_Lipschitz
   rw [integral_map sum_measurable integrand_stmeasurable]
-
   -- And a bunch of integrability lemmas.
   have integrable_f : Integrable f μ := by
     apply Integrable.of_bound
@@ -740,25 +745,20 @@ lemma lipschitz_bdd_unif_approx {L : ℝ≥0} {f : ℝ → ℝ} {δ:ℝ≥0} (f_
     apply Filter.Eventually.of_forall
     intro x
     exact pM (x.1+x.2)
-
   -- To prove this simple rewrite, we need to know that γ δ = gaussianReal 0 δ is a probability measure.
   have : ∫ x:ℝ, f x ∂μ = ∫ x:ℝ×ℝ, f x.1 ∂ μ.prod (gaussianReal 0 δ) := by
     rw [integral_prod_symm (fun x:ℝ×ℝ ↦ f x.1) integrable_f_circ_proj]
     have : ∫ (y : ℝ), ∫ (x : ℝ), f (x, y).1 ∂μ ∂(gaussianReal 0 δ) = (∫ (x : ℝ), f x ∂μ) * ∫ (y : ℝ), (1:ℝ) ∂(gaussianReal 0 δ) := by simp
     simp [this, show ∫ (y : ℝ), (1:ℝ) ∂(gaussianReal 0 δ) = 1 by simp]
-
   rw [this, ← integral_sub integrable_f_circ_proj integrable_f_circ_sum]
-
   -- Now we obtain the goal by estimating |f x.1 - f (x.1 + x.2)| ≤ L * |x.2| and estimating ∫ y, |y| γ δ ≤ √δ.
   apply le_trans abs_integral_le_integral_abs
-
   have lip_bd : (fun x:ℝ×ℝ ↦ |f x.1 - f (x.1 + x.2)|) ≤ (fun x:ℝ×ℝ ↦ L * |x.2|) := by
     intro x
     simp
     have := lipschitzWith_iff_dist_le_mul.mp f_Lipschitz x.1 (x.1+x.2)
     simp[Real.dist_eq] at this
     exact this
-
   have proj_integrable : Integrable (fun x:ℝ×ℝ ↦ L * |x.2|) (μ.prod (gaussianReal 0 δ)) := by
     have : AEStronglyMeasurable (fun x:ℝ×ℝ ↦ L * |x.2|) (μ.prod (gaussianReal 0 δ)) := by measurability
     apply (integrable_prod_iff' this).mpr
@@ -775,20 +775,16 @@ lemma lipschitz_bdd_unif_approx {L : ℝ≥0} {f : ℝ → ℝ} {δ:ℝ≥0} (f_
   have diff_integrable : Integrable (fun x:ℝ×ℝ ↦ |f x.1 - f (x.1+x.2)|) (μ.prod (gaussianReal 0 δ)) := by
     apply Integrable.abs
     exact Integrable.sub' integrable_f_circ_proj integrable_f_circ_sum
-
   apply le_trans (integral_mono diff_integrable proj_integrable lip_bd)
-
   have : ∫ (x : ℝ × ℝ), ↑L * |x.2| ∂μ.prod (gaussianReal 0 δ) = L * ∫ u:ℝ, |u| ∂(gaussianReal 0 δ) := by
     rw [integral_prod_symm (μ := μ) (ν := gaussianReal 0 δ) (fun x:ℝ×ℝ ↦ (L:ℝ) * |x.2|)]
     simp
     apply integral_const_mul
     exact proj_integrable
   rw [this]
-
   have abs_mem_L2 : MemLp (fun x:ℝ ↦ |x|) 2 (gaussianReal 0 δ) := by
     apply MemLp.abs
     exact IsGaussian.memLp_two_fun_id
-
   have var_ineq := variance_nonneg (fun x ↦ |x|) (gaussianReal 0 δ)
   rw [variance_eq_sub abs_mem_L2] at var_ineq
   have ineq := add_le_add_left var_ineq ((∫ (x : ℝ), |x| ∂gaussianReal 0 δ) ^ 2)
@@ -798,14 +794,11 @@ lemma lipschitz_bdd_unif_approx {L : ℝ≥0} {f : ℝ → ℝ} {δ:ℝ≥0} (f_
     have variance_formula_2 := variance_eq_sub this
     simp at variance_formula_2
     rw [variance_formula_2]
-
   rw [variance_formula, show δ = √δ ^ 2 by norm_num] at ineq
-
   have δ_ge_0 : (0:ℝ) ≤ √δ := Real.sqrt_nonneg ↑δ
   have int_ge_0 : 0 ≤ ∫ (x : ℝ), |x| ∂gaussianReal 0 δ := by
     apply integral_nonneg
     exact IsAbsoluteValue.abv_nonneg'
-
   have claim_up_to_const := (sq_le_sq₀ int_ge_0 δ_ge_0).mp ineq
   have : 0 ≤ ↑L := by exact zero_le
   exact mul_le_mul_of_nonneg_left claim_up_to_const this
@@ -821,56 +814,57 @@ lemma charFuns_convergence_densities (δ:ℝ≥0) (charFuns_converge : ∀ t:ℝ
     -- limit is preserved when multiplying by const does the trick
     sorry
 
-
 -- This lemma essentially proves theoem charFun_convergence.
-
 lemma charFun_convergence_Lipschitz {f : ℝ → ℝ} (charFuns_converge : ∀ t:ℝ, Tendsto (fun n ↦ (charFun (ν n) t)) atTop (𝓝 (charFun μ t)))
    (f_bdd : ∃ C, ∀ (x y : ℝ), dist (f x) (f y) ≤ C) (f_Lipschitz : ∃ L, LipschitzWith L f) :
    Tendsto (fun n ↦ ∫ x, f x ∂ (ν n)) atTop (𝓝 (∫ x, f x ∂μ)) := by
-
-  have f_bound_one_point : ∃ M:ℝ, ∀ x:ℝ, |f x| ≤ M := by
-    obtain ⟨C,pC⟩ := f_bdd
-    use C + |f 0|
-    intro x
-    have := pC x 0
-    rw [Real.dist_eq] at this
-    have triangle_consequence : |f x| ≤ |f x - f 0| + |f 0| := by grind
-    exact le_trans triangle_consequence (add_le_add_left this |f 0|)
+  have f_bound_one_point : ∃ M:ℝ, ∀ x:ℝ, |f x| ≤ M := bounded_implies_bounded f_bdd
   obtain ⟨M,pM⟩ := f_bound_one_point
-
-
   obtain ⟨L,pL⟩ := f_Lipschitz
   have f_Lipschitz' : LipschitzWith L f := lipschitzOnWith_univ.mp fun ⦃x⦄ a ⦃y⦄ a_1 ↦ pL x y
+  have f_cts : Continuous f := LipschitzWith.continuous pL
+  have f_meas : Measurable f := Continuous.borel_measurable f_cts
   apply NormedAddCommGroup.tendsto_atTop.mpr
   intro ε hε
   simp
   let charFun_conv_convergence := fun δ:ℝ≥0 ↦ charFuns_convergence_densities μ δ charFuns_converge
   let convolution_bdd := fun (δ:ℝ≥0) ↦ (lipschitz_bdd_unif_approx (δ := δ) μ f_bdd f_Lipschitz')
-  have : ∀δ:ℝ≥0, δ≠0 → Tendsto (fun n ↦ ∫ x, f x ∂ (ν n ∗ (gaussianReal 0 δ))) atTop (𝓝 (∫ x, f x ∂(μ ∗ (gaussianReal 0 δ)))) := by
+  /- This is the key lemma. It is a direct consequence of charFun_convergence_with_densities and onvergence_densities_in_L1_implies_weak_convergence,
+     once we have shown that the assumptions of the two lemmas hold. -/
+  have conv_limit_exists : ∀δ:ℝ≥0, δ≠0 → Tendsto (fun n ↦ ∫ x, f x ∂ (ν n ∗ (gaussianReal 0 δ)) - ∫ x, f x ∂(μ ∗ (gaussianReal 0 δ))) atTop (𝓝 0) := by
     intro δ hδ
-
     let p : ℕ → ℝ → ℝ≥0∞ := fun n ↦ (fun x ↦ ∫⁻ (y : ℝ), gaussianPDF 0 δ (x - y) ∂ν n)
+    let g : ℝ → ℝ≥0∞ := fun x ↦ ∫⁻ (y : ℝ), gaussianPDF 0 δ (x - y) ∂μ
     have exists_densities : ∀ (n : ℕ), volume.withDensity (p n) = ν n ∗ (gaussianReal 0 δ) := by
       intro n
       exact Eq.symm (gaussian_conv_has_density (ν n) hδ)
-    let g : ℝ → ℝ≥0∞ := fun x ↦ ∫⁻ (y : ℝ), gaussianPDF 0 δ (x - y) ∂μ
     have exists_density : volume.withDensity g = μ ∗ (gaussianReal 0 δ) := Eq.symm (gaussian_conv_has_density μ hδ)
-
     have p_cts : ∀ n , Continuous (fun x ↦ (p n x).toReal) := by sorry
     have p_cts' : ∀ n , Continuous (fun x ↦ ((p n x).toReal:ℂ)) := by sorry
     have g_cts : Continuous (fun x ↦ (g x).toReal) := by sorry
     have g_cts' : Continuous (fun x ↦ ((g x).toReal:ℂ)) := by sorry
-
     have p_meas : ∀ (n : ℕ), Measurable (p n) := by
       intro n
       measurability
     have g_meas : Measurable g := by measurability
-
-    -- Here we let h be the charfun of gaussianReal 0 δ, use gaussian_charFun_integrable
+    -- Now we rewrite everything in terms of densities
+    have : (fun n ↦ ∫ (x : ℝ), f x ∂ν n ∗ gaussianReal 0 δ - ∫ (x : ℝ), f x ∂μ ∗ gaussianReal 0 δ)
+      = (fun n ↦ ∫ x:ℝ, f x * (p n x).toReal ∂volume - ∫ x:ℝ, f x * (g x).toReal ∂volume) := by
+      ext n
+      have : ∫ (x : ℝ), f x ∂ν n ∗ gaussianReal 0 δ = ∫ x:ℝ, f x * (p n x).toReal ∂volume := by
+        have := ae_finite_density ((ν n) ∗ gaussianReal 0 δ) (exists_densities n) (p_meas n)
+        simp [← exists_densities n , integral_withDensity_eq_integral_toReal_smul (p_meas n) this f]
+        grind
+      rw [this]
+      have : ∫ (x : ℝ), f x ∂μ ∗ gaussianReal 0 δ = ∫ x:ℝ, f x * (g x).toReal ∂volume := by
+        have := ae_finite_density (μ ∗ gaussianReal 0 δ) (exists_density) g_meas
+        simp [← exists_density , integral_withDensity_eq_integral_toReal_smul g_meas this f]
+        grind
+      rw [this]
+    rw [this]
+    -- Here we let h be the charfun of gaussianReal 0 δ, and then we use gaussian_charFun_integrable. This is the assumption of charFun_convergence_with_densities that needs the most work.
     have charFuns_dominated : ∃ h : ℝ → ℝ,
-      Integrable h volume
-      ∧ (∀ (n:ℕ) (t:ℝ), ‖charFun ((ν n) ∗ (gaussianReal 0 δ)) t‖ ≤ h t)
-      ∧ ∀ t, ‖charFun (μ ∗ (gaussianReal 0 δ)) t‖ ≤ h t := by
+      Integrable h volume ∧ (∀ (n:ℕ) (t:ℝ), ‖charFun ((ν n) ∗ (gaussianReal 0 δ)) t‖ ≤ h t) ∧ ∀ t, ‖charFun (μ ∗ (gaussianReal 0 δ)) t‖ ≤ h t := by
       have gaussian_charFun_integrable := gaussian_charFun_integrable hδ
       have : charFun (gaussianReal 0 δ) = (fun t:ℝ ↦ cexp (- δ * ↑t ^ 2 / 2)) := by
         ext t
@@ -880,7 +874,6 @@ lemma charFun_convergence_Lipschitz {f : ℝ → ℝ} (charFuns_converge : ∀ t
       rw [this, show (fun t:ℝ ↦ cexp (-δ * t^2/2)) = (fun t:ℝ ↦ (Real.exp (-δ * t^2/2):ℂ )) by simp] at gaussian_charFun_integrable
       let h := fun t ↦ Real.exp (-δ * t^2/2)
       use h
-
       have exp_bd : ∀ t:ℝ, ‖cexp (-(↑↑δ * ↑t ^ 2 / 2))‖ = Real.exp (-δ * t^2/2) := by
         intro t
         simp
@@ -907,41 +900,10 @@ lemma charFun_convergence_Lipschitz {f : ℝ → ℝ} (charFuns_converge : ∀ t
           apply le_trans (mul_le_mul_of_nonneg_right bd this)
           unfold h
           simp [charFun_gaussianReal, exp_bd t]
-
-
-    apply tendsto_sub_nhds_zero_iff.mp
-    have : (fun n:ℕ ↦ ∫ (x : ℝ), f x ∂ν n ∗ (gaussianReal 0 δ) - ∫ (x : ℝ), f x ∂μ ∗ (gaussianReal 0 δ))
-      = (fun n:ℕ ↦ ∫ x:ℝ, (f x) * ((p n x).toReal - (g x).toReal) ∂volume) := sorry
-    rw [this]
-    apply (tendsto_zero_iff_abs_tendsto_zero (fun n:ℕ ↦ ∫ x:ℝ, (f x) * ((p n x).toReal - (g x).toReal) ∂volume)).mpr
-    have non_neg : ∀ n, (abs ∘ fun n ↦ ∫ (x : ℝ), f x * ((p n x).toReal - (g x).toReal)) n ≥ 0 := by simp
-    have : ∀ n, (abs ∘ fun n ↦ ∫ (x : ℝ), f x * ((p n x).toReal - (g x).toReal)) n ≤ |M| * ∫ x:ℝ, |(p n x).toReal - (g x).toReal| ∂volume := by
-      intro n
-      simp
-      apply le_trans abs_integral_le_integral_abs
-      simp
-      have bdd : (fun x:ℝ ↦ |f x| * |(p n x).toReal - (g x).toReal|) ≤ (fun x:ℝ ↦ |M| * |(p n x).toReal - (g x).toReal|) := sorry
-      have hg : Integrable (fun x:ℝ ↦ |M| * |(p n x).toReal - (g x).toReal|) := sorry
-      have hf : Integrable (fun x:ℝ ↦ |f x| * |(p n x).toReal - (g x).toReal|) := by
-        have : AEStronglyMeasurable ((fun x:ℝ ↦ |f x| * |(p n x).toReal - (g x).toReal|)) := by
-          have : Continuous (fun x:ℝ ↦ |f x|) := by
-            have : Continuous f := by exact LipschitzWith.continuous pL
-            fun_prop
-          have : Continuous ((fun x:ℝ ↦ |f x| * |(p n x).toReal - (g x).toReal|)) := by fun_prop
-          exact Continuous.aestronglyMeasurable this
-        apply Integrable.mono hg this
-        apply Filter.Eventually.of_forall
-        intro x
-        simp
-        exact bdd x
-      apply le_trans (integral_mono hf hg bdd)
-      exact Std.le_of_eq (integral_const_mul (|M|:ℝ) (fun x ↦ |(p n x).toReal - (g x).toReal|))
-
-    apply squeeze_zero non_neg this
-    have := charFun_convergence_with_densities (μ ∗ (gaussianReal 0 δ)) p_meas p_cts' g_meas g_cts' (charFun_conv_convergence δ) exists_densities exists_density charFuns_dominated
-    have := Tendsto.const_smul_zero (|M|:ℝ) this
-    simp at this
-    exact this
+    have := charFun_convergence_with_densities (μ ∗ gaussianReal 0 δ) p_meas p_cts' g_meas g_cts' (charFun_conv_convergence δ) exists_densities exists_density charFuns_dominated
+    exact convergence_densities_in_L1_implies_weak_convergence p_meas p_cts' g_meas g_cts' this f_bdd f_meas
+  -- End of proof of conv_limit_exists
+  -- Now extract N by using conv_limit_exists as well as convolution_bdd
 
   sorry
 
