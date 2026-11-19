@@ -808,8 +808,128 @@ lemma charFuns_convergence_densities (δ:ℝ≥0) (charFuns_converge : ∀ t:ℝ
       ext n
       rw [charFun_conv]
     rw [this]
-    -- limit is preserved when multiplying by const does the trick
+    exact Filter.Tendsto.mul_const (charFun (gaussianReal 0 δ) t) (charFuns_converge t)
+
+-- We will now prove some lemmas needed for the main lemma charFun_convergence_Lipschitz.
+private lemma charFun_dominated {μ : Measure ℝ} [IsProbabilityMeasure μ] {ν : ℕ → Measure ℝ} [∀ n, IsProbabilityMeasure (ν n)] {δ : ℝ≥0} (hδ : δ ≠ 0) :
+  ∃ h : ℝ → ℝ, Integrable h volume ∧ (∀ (n:ℕ) (t:ℝ), ‖charFun ((ν n) ∗ (gaussianReal 0 δ)) t‖ ≤ h t) ∧ ∀ t, ‖charFun (μ ∗ (gaussianReal 0 δ)) t‖ ≤ h t := by
+  have gaussian_charFun_integrable := gaussian_charFun_integrable hδ
+  have : charFun (gaussianReal 0 δ) = (fun t:ℝ ↦ cexp (- δ * ↑t ^ 2 / 2)) := by
+    ext t
+    rw [charFun_gaussianReal]
+    simp
+    field_simp
+  rw [this, show (fun t:ℝ ↦ cexp (-δ * t^2/2)) = (fun t:ℝ ↦ (Real.exp (-δ * t^2/2):ℂ )) by simp] at gaussian_charFun_integrable
+  let h := fun t ↦ Real.exp (-δ * t^2/2)
+  use h
+  have exp_bd : ∀ t:ℝ, ‖cexp (-(↑↑δ * ↑t ^ 2 / 2))‖ = Real.exp (-δ * t^2/2) := by
+    intro t
+    simp
+    rw [norm_exp]
+    field_simp
+    simp
+    left
+    rw [← Complex.ofReal_pow]
+    exact ofReal_re (t ^ 2)
+  constructor
+  · exact Integrable.iff_ofReal.mpr gaussian_charFun_integrable
+  · constructor
+    · intro n t
+      rw [charFun_conv, Complex.norm_mul]
+      have bd := norm_charFun_le_one (μ := ν n) t
+      have : 0 ≤ ‖charFun (gaussianReal 0 δ) t‖ := Complex.norm_nonneg (charFun (gaussianReal 0 δ) t)
+      apply le_trans (mul_le_mul_of_nonneg_right bd this)
+      unfold h
+      simp [charFun_gaussianReal, exp_bd t]
+    · intro t
+      rw [charFun_conv, Complex.norm_mul]
+      have bd := norm_charFun_le_one (μ := μ) t
+      have : 0 ≤ ‖charFun (gaussianReal 0 δ) t‖ := Complex.norm_nonneg (charFun (gaussianReal 0 δ) t)
+      apply le_trans (mul_le_mul_of_nonneg_right bd this)
+      unfold h
+      simp [charFun_gaussianReal, exp_bd t]
+
+private lemma conv_limit_exists  {μ : Measure ℝ} [IsProbabilityMeasure μ] {ν : ℕ → Measure ℝ} [∀ n, IsProbabilityMeasure (ν n)]
+  {f : ℝ → ℝ} (f_bdd : ∃ C, ∀ (x y : ℝ), dist (f x) (f y) ≤ C) (f_meas : Measurable f)
+  (charFun_conv_convergence : ∀ (δ : ℝ≥0) (t : ℝ), Tendsto (fun n ↦ charFun (ν n ∗ gaussianReal 0 δ) t) atTop (𝓝 (charFun (μ ∗ gaussianReal 0 δ) t))) :
+  ∀δ:ℝ≥0, δ≠0 → Tendsto (fun n ↦ ∫ x, f x ∂ (ν n ∗ (gaussianReal 0 δ)) - ∫ x, f x ∂(μ ∗ (gaussianReal 0 δ))) atTop (𝓝 0) := by
+  intro δ hδ
+  let p : ℕ → ℝ → ℝ≥0∞ := fun n ↦ (fun x ↦ ∫⁻ (y : ℝ), gaussianPDF 0 δ (x - y) ∂ν n)
+  let g : ℝ → ℝ≥0∞ := fun x ↦ ∫⁻ (y : ℝ), gaussianPDF 0 δ (x - y) ∂μ
+  have exists_densities : ∀ (n : ℕ), volume.withDensity (p n) = ν n ∗ (gaussianReal 0 δ) := by
+    intro n
+    exact Eq.symm (gaussian_conv_has_density (ν n) hδ)
+  have exists_density : volume.withDensity g = μ ∗ (gaussianReal 0 δ) := Eq.symm (gaussian_conv_has_density μ hδ)
+  have p_cts : ∀ n , Continuous (fun x ↦ (p n x).toReal) := by sorry
+  have p_cts' : ∀ n , Continuous (fun x ↦ ((p n x).toReal:ℂ)) := by sorry
+  have g_cts : Continuous (fun x ↦ (g x).toReal) := by sorry
+  have g_cts' : Continuous (fun x ↦ ((g x).toReal:ℂ)) := by sorry
+  have p_meas : ∀ (n : ℕ), Measurable (p n) := by
+    intro n
+    measurability
+  have g_meas : Measurable g := by measurability
+  -- Now we rewrite everything in terms of densities
+  have : (fun n ↦ ∫ (x : ℝ), f x ∂ν n ∗ gaussianReal 0 δ - ∫ (x : ℝ), f x ∂μ ∗ gaussianReal 0 δ)
+    = (fun n ↦ ∫ x:ℝ, f x * (p n x).toReal ∂volume - ∫ x:ℝ, f x * (g x).toReal ∂volume) := by
+    ext n
+    have : ∫ (x : ℝ), f x ∂ν n ∗ gaussianReal 0 δ = ∫ x:ℝ, f x * (p n x).toReal ∂volume := by
+      have := ae_finite_density ((ν n) ∗ gaussianReal 0 δ) (exists_densities n) (p_meas n)
+      simp [← exists_densities n , integral_withDensity_eq_integral_toReal_smul (p_meas n) this f]
+      grind
+    rw [this]
+    have : ∫ (x : ℝ), f x ∂μ ∗ gaussianReal 0 δ = ∫ x:ℝ, f x * (g x).toReal ∂volume := by
+      have := ae_finite_density (μ ∗ gaussianReal 0 δ) (exists_density) g_meas
+      simp [← exists_density , integral_withDensity_eq_integral_toReal_smul g_meas this f]
+      grind
+    rw [this]
+  rw [this]
+  have charFuns_dominated := charFun_dominated (μ := μ) (ν := ν) hδ
+  have := charFun_convergence_with_densities (μ ∗ gaussianReal 0 δ) p_meas p_cts' g_meas g_cts' (charFun_conv_convergence δ) exists_densities exists_density charFuns_dominated
+  exact convergence_densities_in_L1_implies_weak_convergence p_meas p_cts' g_meas g_cts' this f_bdd f_meas
+
+lemma unif_approx_mollified_measure {μ : Measure ℝ}[IsProbabilityMeasure μ] {ν : ℕ → Measure ℝ} [∀n, IsProbabilityMeasure (ν n)]
+  {f : ℝ → ℝ} {L : ℝ≥0} (f_meas : Measurable f) (f_Lipschitz' : LipschitzWith L f) (f_bdd : ∃ C, ∀ (x y : ℝ), dist (f x) (f y) ≤ C) :
+  TendstoUniformly (fun (m:ℕ) ↦ (fun (n:ℕ) ↦ ∫ x, f x ∂((ν n) ∗ gaussianReal 0 (1/(m+1))) - ∫ x, f x ∂(μ ∗ gaussianReal 0 (1/(m+1))))) (fun n ↦ ∫ x, f x ∂ν n - ∫ x, f x ∂μ) atTop := by
+  let convolution_bdd_μ := fun (δ:ℝ≥0) ↦ (lipschitz_bdd_unif_approx (δ := δ) μ f_bdd f_Lipschitz')
+  let convolution_bdd_ν := fun (n:ℕ) ↦ (fun (δ:ℝ≥0) ↦ (lipschitz_bdd_unif_approx (δ := δ) (ν n) f_bdd f_Lipschitz'))
+  apply Metric.tendstoUniformly_iff.mpr
+  intro ε hε
+  have : ∃ N:ℕ , 2 * L * √(1/(N+1)) < ε := by
+    have : Tendsto (fun (N:ℕ) ↦ (2:ℝ) * L * √(1/(N+1))) atTop (𝓝 0) := by
+      rw [show (0:ℝ) = ((2*L)*0:ℝ) by simp]
+      apply Tendsto.const_mul ((2:ℝ)*L)
+      simp
+      rw [show (fun (n:ℕ) ↦ (√(n + 1))⁻¹) = (fun r:ℝ ↦ r⁻¹) ∘ (fun n:ℕ ↦ √(n+1)) by ext n; simp]
+      have : Tendsto (fun (n:ℕ) ↦ √(n+1)) atTop atTop := by
+        have : Tendsto (fun n:ℕ ↦ (n:ℝ) + 1) atTop atTop := by
+          apply Tendsto.atTop_add_nonneg
+          exact tendsto_natCast_atTop_atTop
+          simp
+        exact Tendsto.comp Real.tendsto_sqrt_atTop this
+      exact Tendsto.comp tendsto_inv_atTop_zero this
+    obtain ⟨N,pN⟩ := Metric.tendsto_atTop.mp this ε hε
+    use N
+    have := pN N (le_refl N)
     sorry
+  obtain ⟨N, pN⟩ := this
+  filter_upwards [Filter.eventually_ge_atTop N] with n hn
+  intro m
+  rw [Real.dist_eq]
+  have : |∫ (x : ℝ), f x ∂ν m - ∫ (x : ℝ), f x ∂μ - (∫ (x : ℝ), f x ∂(ν m ∗ gaussianReal 0 (1 / (n + 1))) - ∫ (x : ℝ), f x ∂μ ∗ gaussianReal 0 (1 / (n + 1)))|
+    = |∫ (x : ℝ), f x ∂ν m - ∫ (x : ℝ), f x ∂ν m ∗ gaussianReal 0 (1 / (n + 1))  - (∫ (x : ℝ), f x ∂μ - ∫ (x : ℝ), f x ∂μ ∗ gaussianReal 0 (1 / (n + 1)))| := by
+    apply congr_arg abs
+    ring
+  rw [this]
+  have h1 : |∫ (x : ℝ), f x ∂ν m - ∫ (x : ℝ), f x ∂ν m ∗ gaussianReal 0 (1 / (n + 1))| ≤ L * √(1/(n+1)) := convolution_bdd_ν m (1/(n+1))
+  have h2 : |∫ (x : ℝ), f x ∂μ - ∫ (x : ℝ), f x ∂μ ∗ gaussianReal 0 (1 / (n + 1))| ≤ L * √(1/(n+1)) := convolution_bdd_μ (1/(n+1))
+  have : |∫ (x : ℝ), f x ∂ν m - ∫ (x : ℝ), f x ∂ν m ∗ gaussianReal 0 (1 / (n + 1))| + |∫ (x : ℝ), f x ∂μ - ∫ (x : ℝ), f x ∂μ ∗ gaussianReal 0 (1 / (n + 1))| < ε := by
+    have triangle_ineq_consequence := add_le_add h1 h2
+    rw [show L * √(1 / (n + 1)) + L * √(1 / (n + 1)) = 2 * L * √(1 / (n + 1)) by ring] at triangle_ineq_consequence
+    have : 2 * L * √(1 / (n + 1)) ≤ 2 * L * √(1 / (N + 1)) := by gcongr
+    have := le_trans triangle_ineq_consequence this
+    exact lt_of_le_of_lt this pN
+  apply lt_of_le_of_lt _ this
+  apply abs_sub
 
 -- This lemma essentially proves theoem charFun_convergence.
 lemma charFun_convergence_Lipschitz {f : ℝ → ℝ} (charFuns_converge : ∀ t:ℝ, Tendsto (fun n ↦ (charFun (ν n) t)) atTop (𝓝 (charFun μ t)))
@@ -824,128 +944,16 @@ lemma charFun_convergence_Lipschitz {f : ℝ → ℝ} (charFuns_converge : ∀ t
   let charFun_conv_convergence := fun δ:ℝ≥0 ↦ charFuns_convergence_densities μ δ charFuns_converge
   let convolution_bdd_μ := fun (δ:ℝ≥0) ↦ (lipschitz_bdd_unif_approx (δ := δ) μ f_bdd f_Lipschitz')
   let convolution_bdd_ν := fun (n:ℕ) ↦ (fun (δ:ℝ≥0) ↦ (lipschitz_bdd_unif_approx (δ := δ) (ν n) f_bdd f_Lipschitz'))
-  /- This is the key lemma. It is a direct consequence of charFun_convergence_with_densities and onvergence_densities_in_L1_implies_weak_convergence,
-     once we have shown that the assumptions of the two lemmas hold. -/
-  have conv_limit_exists : ∀δ:ℝ≥0, δ≠0 → Tendsto (fun n ↦ ∫ x, f x ∂ (ν n ∗ (gaussianReal 0 δ)) - ∫ x, f x ∂(μ ∗ (gaussianReal 0 δ))) atTop (𝓝 0) := by
-    intro δ hδ
-    let p : ℕ → ℝ → ℝ≥0∞ := fun n ↦ (fun x ↦ ∫⁻ (y : ℝ), gaussianPDF 0 δ (x - y) ∂ν n)
-    let g : ℝ → ℝ≥0∞ := fun x ↦ ∫⁻ (y : ℝ), gaussianPDF 0 δ (x - y) ∂μ
-    have exists_densities : ∀ (n : ℕ), volume.withDensity (p n) = ν n ∗ (gaussianReal 0 δ) := by
-      intro n
-      exact Eq.symm (gaussian_conv_has_density (ν n) hδ)
-    have exists_density : volume.withDensity g = μ ∗ (gaussianReal 0 δ) := Eq.symm (gaussian_conv_has_density μ hδ)
-    have p_cts : ∀ n , Continuous (fun x ↦ (p n x).toReal) := by sorry
-    have p_cts' : ∀ n , Continuous (fun x ↦ ((p n x).toReal:ℂ)) := by sorry
-    have g_cts : Continuous (fun x ↦ (g x).toReal) := by sorry
-    have g_cts' : Continuous (fun x ↦ ((g x).toReal:ℂ)) := by sorry
-    have p_meas : ∀ (n : ℕ), Measurable (p n) := by
-      intro n
-      measurability
-    have g_meas : Measurable g := by measurability
-    -- Now we rewrite everything in terms of densities
-    have : (fun n ↦ ∫ (x : ℝ), f x ∂ν n ∗ gaussianReal 0 δ - ∫ (x : ℝ), f x ∂μ ∗ gaussianReal 0 δ)
-      = (fun n ↦ ∫ x:ℝ, f x * (p n x).toReal ∂volume - ∫ x:ℝ, f x * (g x).toReal ∂volume) := by
-      ext n
-      have : ∫ (x : ℝ), f x ∂ν n ∗ gaussianReal 0 δ = ∫ x:ℝ, f x * (p n x).toReal ∂volume := by
-        have := ae_finite_density ((ν n) ∗ gaussianReal 0 δ) (exists_densities n) (p_meas n)
-        simp [← exists_densities n , integral_withDensity_eq_integral_toReal_smul (p_meas n) this f]
-        grind
-      rw [this]
-      have : ∫ (x : ℝ), f x ∂μ ∗ gaussianReal 0 δ = ∫ x:ℝ, f x * (g x).toReal ∂volume := by
-        have := ae_finite_density (μ ∗ gaussianReal 0 δ) (exists_density) g_meas
-        simp [← exists_density , integral_withDensity_eq_integral_toReal_smul g_meas this f]
-        grind
-      rw [this]
-    rw [this]
-    -- Here we let h be the charfun of gaussianReal 0 δ, and then we use gaussian_charFun_integrable. This is the assumption of charFun_convergence_with_densities that needs the most work.
-    have charFuns_dominated : ∃ h : ℝ → ℝ,
-      Integrable h volume ∧ (∀ (n:ℕ) (t:ℝ), ‖charFun ((ν n) ∗ (gaussianReal 0 δ)) t‖ ≤ h t) ∧ ∀ t, ‖charFun (μ ∗ (gaussianReal 0 δ)) t‖ ≤ h t := by
-      have gaussian_charFun_integrable := gaussian_charFun_integrable hδ
-      have : charFun (gaussianReal 0 δ) = (fun t:ℝ ↦ cexp (- δ * ↑t ^ 2 / 2)) := by
-        ext t
-        rw [charFun_gaussianReal]
-        simp
-        field_simp
-      rw [this, show (fun t:ℝ ↦ cexp (-δ * t^2/2)) = (fun t:ℝ ↦ (Real.exp (-δ * t^2/2):ℂ )) by simp] at gaussian_charFun_integrable
-      let h := fun t ↦ Real.exp (-δ * t^2/2)
-      use h
-      have exp_bd : ∀ t:ℝ, ‖cexp (-(↑↑δ * ↑t ^ 2 / 2))‖ = Real.exp (-δ * t^2/2) := by
-        intro t
-        simp
-        rw [norm_exp]
-        field_simp
-        simp
-        left
-        rw [← Complex.ofReal_pow]
-        exact ofReal_re (t ^ 2)
-      constructor
-      · exact Integrable.iff_ofReal.mpr gaussian_charFun_integrable
-      · constructor
-        · intro n t
-          rw [charFun_conv, Complex.norm_mul]
-          have bd := norm_charFun_le_one (μ := ν n) t
-          have : 0 ≤ ‖charFun (gaussianReal 0 δ) t‖ := Complex.norm_nonneg (charFun (gaussianReal 0 δ) t)
-          apply le_trans (mul_le_mul_of_nonneg_right bd this)
-          unfold h
-          simp [charFun_gaussianReal, exp_bd t]
-        · intro t
-          rw [charFun_conv, Complex.norm_mul]
-          have bd := norm_charFun_le_one (μ := μ) t
-          have : 0 ≤ ‖charFun (gaussianReal 0 δ) t‖ := Complex.norm_nonneg (charFun (gaussianReal 0 δ) t)
-          apply le_trans (mul_le_mul_of_nonneg_right bd this)
-          unfold h
-          simp [charFun_gaussianReal, exp_bd t]
-    have := charFun_convergence_with_densities (μ ∗ gaussianReal 0 δ) p_meas p_cts' g_meas g_cts' (charFun_conv_convergence δ) exists_densities exists_density charFuns_dominated
-    exact convergence_densities_in_L1_implies_weak_convergence p_meas p_cts' g_meas g_cts' this f_bdd f_meas
   apply tendsto_sub_nhds_zero_iff.mp
   show Tendsto (fun n ↦ ∫ x, f x ∂ν n - ∫ x, f x ∂μ) atTop (𝓝 0)
   let F : ℕ → ℕ → ℝ := fun m ↦ (fun n ↦ ∫ x, f x ∂((ν n) ∗ gaussianReal 0 (1/(m+1))) - ∫ x, f x ∂(μ ∗ gaussianReal 0 (1/(m+1))))
-  have unif_approx_mollification : TendstoUniformly F (fun n ↦ ∫ x, f x ∂ν n - ∫ x, f x ∂μ) atTop := by
-    apply Metric.tendstoUniformly_iff.mpr
-    intro ε hε
-    have : ∃ N:ℕ , 2 * L * √(1/(N+1)) < ε := by
-      have : Tendsto (fun (N:ℕ) ↦ (2:ℝ) * L * √(1/(N+1))) atTop (𝓝 0) := by
-        rw [show (0:ℝ) = ((2*L)*0:ℝ) by simp]
-        apply Tendsto.const_mul ((2:ℝ)*L)
-        simp
-        rw [show (fun (n:ℕ) ↦ (√(n + 1))⁻¹) = (fun r:ℝ ↦ r⁻¹) ∘ (fun n:ℕ ↦ √(n+1)) by ext n; simp]
-        have : Tendsto (fun (n:ℕ) ↦ √(n+1)) atTop atTop := by
-          have : Tendsto (fun n:ℕ ↦ (n:ℝ) + 1) atTop atTop := by
-            apply Tendsto.atTop_add_nonneg
-            exact tendsto_natCast_atTop_atTop
-            simp
-          exact Tendsto.comp Real.tendsto_sqrt_atTop this
-        exact Tendsto.comp tendsto_inv_atTop_zero this
-      obtain ⟨N,pN⟩ := Metric.tendsto_atTop.mp this ε hε
-      use N
-      have := pN N (le_refl N)
-      sorry
-    obtain ⟨N, pN⟩ := this
-    filter_upwards [Filter.eventually_ge_atTop N] with n hn
-    intro m
-    rw [Real.dist_eq]
-    unfold F
-    have : |∫ (x : ℝ), f x ∂ν m - ∫ (x : ℝ), f x ∂μ - (∫ (x : ℝ), f x ∂(ν m ∗ gaussianReal 0 (1 / (n + 1))) - ∫ (x : ℝ), f x ∂μ ∗ gaussianReal 0 (1 / (n + 1)))|
-      = |∫ (x : ℝ), f x ∂ν m - ∫ (x : ℝ), f x ∂ν m ∗ gaussianReal 0 (1 / (n + 1))  - (∫ (x : ℝ), f x ∂μ - ∫ (x : ℝ), f x ∂μ ∗ gaussianReal 0 (1 / (n + 1)))| := by
-      apply congr_arg abs
-      ring
-    rw [this]
-    have h1 : |∫ (x : ℝ), f x ∂ν m - ∫ (x : ℝ), f x ∂ν m ∗ gaussianReal 0 (1 / (n + 1))| ≤ L * √(1/(n+1)) := convolution_bdd_ν m (1/(n+1))
-    have h2 : |∫ (x : ℝ), f x ∂μ - ∫ (x : ℝ), f x ∂μ ∗ gaussianReal 0 (1 / (n + 1))| ≤ L * √(1/(n+1)) := convolution_bdd_μ (1/(n+1))
-    have : |∫ (x : ℝ), f x ∂ν m - ∫ (x : ℝ), f x ∂ν m ∗ gaussianReal 0 (1 / (n + 1))| + |∫ (x : ℝ), f x ∂μ - ∫ (x : ℝ), f x ∂μ ∗ gaussianReal 0 (1 / (n + 1))| < ε := by
-      have triangle_ineq_consequence := add_le_add h1 h2
-      rw [show L * √(1 / (n + 1)) + L * √(1 / (n + 1)) = 2 * L * √(1 / (n + 1)) by ring] at triangle_ineq_consequence
-      have : 2 * L * √(1 / (n + 1)) ≤ 2 * L * √(1 / (N + 1)) := by gcongr
-      have := le_trans triangle_ineq_consequence this
-      exact lt_of_le_of_lt this pN
-    apply lt_of_le_of_lt _ this
-    apply abs_sub
+  have unif_approx_mollification := unif_approx_mollified_measure (μ := μ) (ν := ν) f_meas f_Lipschitz' f_bdd
   have conv_limit_F : ∀ᶠ (i : ℕ) in atTop, Tendsto (F i) atTop (𝓝 0) := by
     apply Filter.Eventually.of_forall
     intro m
     unfold F
     have : ((1/(m+1)):ℝ≥0) ≠ 0 := by simp
-    exact conv_limit_exists (1/(m+1)) this
+    exact (conv_limit_exists f_bdd f_meas charFun_conv_convergence) (1/(m+1)) this
   have : Tendsto (fun (n:ℕ) ↦ (0:ℝ)) atTop (𝓝 0) := tendsto_const_nhds
   exact TendstoUniformly.tendsto_of_eventually_tendsto unif_approx_mollification conv_limit_F this
 
