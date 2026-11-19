@@ -887,31 +887,35 @@ private lemma conv_limit_exists  {μ : Measure ℝ} [IsProbabilityMeasure μ] {�
   have := charFun_convergence_with_densities (μ ∗ gaussianReal 0 δ) p_meas p_cts' g_meas g_cts' (charFun_conv_convergence δ) exists_densities exists_density charFuns_dominated
   exact convergence_densities_in_L1_implies_weak_convergence p_meas p_cts' g_meas g_cts' this f_bdd f_meas
 
-lemma unif_approx_mollified_measure {μ : Measure ℝ}[IsProbabilityMeasure μ] {ν : ℕ → Measure ℝ} [∀n, IsProbabilityMeasure (ν n)]
-  {f : ℝ → ℝ} {L : ℝ≥0} (f_meas : Measurable f) (f_Lipschitz' : LipschitzWith L f) (f_bdd : ∃ C, ∀ (x y : ℝ), dist (f x) (f y) ≤ C) :
+-- The statement is mathematically easy, but it requires enough work in Lean to warrant being its own lemma.
+private lemma ineq_for_L (L:ℝ≥0) : ∀ε>0, ∃ N:ℕ,  2 * L * √(1/(N+1)) < ε := by
+  intro ε hε
+  have : Tendsto (fun (N:ℕ) ↦ (2:ℝ) * L * √(1/(N+1))) atTop (𝓝 0) := by
+    rw [show (0:ℝ) = ((2*L)*0:ℝ) by simp]
+    apply Tendsto.const_mul ((2:ℝ)*L)
+    simp
+    rw [show (fun (n:ℕ) ↦ (√(n + 1))⁻¹) = (fun r:ℝ ↦ r⁻¹) ∘ (fun n:ℕ ↦ √(n+1)) by ext n; simp]
+    have : Tendsto (fun (n:ℕ) ↦ √(n+1)) atTop atTop := by
+      have : Tendsto (fun n:ℕ ↦ (n:ℝ) + 1) atTop atTop := by
+        apply Tendsto.atTop_add_nonneg
+        exact tendsto_natCast_atTop_atTop
+        simp
+      exact Tendsto.comp Real.tendsto_sqrt_atTop this
+    exact Tendsto.comp tendsto_inv_atTop_zero this
+  obtain ⟨N,pN⟩ := Metric.tendsto_atTop.mp this ε hε
+  use N
+  have := pN N (le_refl N)
+  rw [Real.dist_0_eq_abs] at this
+  exact lt_of_le_of_lt (le_abs_self (2 * ↑L * √(1 / (↑N + 1)))) this
+
+private lemma unif_approx_mollified_measure {μ : Measure ℝ}[IsProbabilityMeasure μ] {ν : ℕ → Measure ℝ} [∀n, IsProbabilityMeasure (ν n)]
+  {f : ℝ → ℝ} {L : ℝ≥0} (f_Lipschitz' : LipschitzWith L f) (f_bdd : ∃ C, ∀ (x y : ℝ), dist (f x) (f y) ≤ C) :
   TendstoUniformly (fun (m:ℕ) ↦ (fun (n:ℕ) ↦ ∫ x, f x ∂((ν n) ∗ gaussianReal 0 (1/(m+1))) - ∫ x, f x ∂(μ ∗ gaussianReal 0 (1/(m+1))))) (fun n ↦ ∫ x, f x ∂ν n - ∫ x, f x ∂μ) atTop := by
   let convolution_bdd_μ := fun (δ:ℝ≥0) ↦ (lipschitz_bdd_unif_approx (δ := δ) μ f_bdd f_Lipschitz')
   let convolution_bdd_ν := fun (n:ℕ) ↦ (fun (δ:ℝ≥0) ↦ (lipschitz_bdd_unif_approx (δ := δ) (ν n) f_bdd f_Lipschitz'))
   apply Metric.tendstoUniformly_iff.mpr
   intro ε hε
-  have : ∃ N:ℕ , 2 * L * √(1/(N+1)) < ε := by
-    have : Tendsto (fun (N:ℕ) ↦ (2:ℝ) * L * √(1/(N+1))) atTop (𝓝 0) := by
-      rw [show (0:ℝ) = ((2*L)*0:ℝ) by simp]
-      apply Tendsto.const_mul ((2:ℝ)*L)
-      simp
-      rw [show (fun (n:ℕ) ↦ (√(n + 1))⁻¹) = (fun r:ℝ ↦ r⁻¹) ∘ (fun n:ℕ ↦ √(n+1)) by ext n; simp]
-      have : Tendsto (fun (n:ℕ) ↦ √(n+1)) atTop atTop := by
-        have : Tendsto (fun n:ℕ ↦ (n:ℝ) + 1) atTop atTop := by
-          apply Tendsto.atTop_add_nonneg
-          exact tendsto_natCast_atTop_atTop
-          simp
-        exact Tendsto.comp Real.tendsto_sqrt_atTop this
-      exact Tendsto.comp tendsto_inv_atTop_zero this
-    obtain ⟨N,pN⟩ := Metric.tendsto_atTop.mp this ε hε
-    use N
-    have := pN N (le_refl N)
-    sorry
-  obtain ⟨N, pN⟩ := this
+  obtain ⟨N, pN⟩ := ineq_for_L L ε hε
   filter_upwards [Filter.eventually_ge_atTop N] with n hn
   intro m
   rw [Real.dist_eq]
@@ -931,23 +935,24 @@ lemma unif_approx_mollified_measure {μ : Measure ℝ}[IsProbabilityMeasure μ] 
   apply lt_of_le_of_lt _ this
   apply abs_sub
 
--- This lemma essentially proves theoem charFun_convergence.
+/- This lemma essentially proves theoem charFun_convergence. The mathematical argument is fairly straightforward: because
+            ∫ f d(ν n ∗ gaussianReal 0 δ) → ∫ f d(μ ∗ gaussianReal 0 δ)
+     and because
+            ∫ f d(ν n ∗ gaussianReal 0 δ) → ∫ f d(ν n) uniformly in n,
+     as well as ∫ f d(μ ∗ gaussianReal 0 δ) → ∫ f dμ, the convergence ∫ f d(ν n) → ∫ f dμ holds as well. -/
 lemma charFun_convergence_Lipschitz {f : ℝ → ℝ} (charFuns_converge : ∀ t:ℝ, Tendsto (fun n ↦ (charFun (ν n) t)) atTop (𝓝 (charFun μ t)))
    (f_bdd : ∃ C, ∀ (x y : ℝ), dist (f x) (f y) ≤ C) (f_Lipschitz : ∃ L, LipschitzWith L f) :
    Tendsto (fun n ↦ ∫ x, f x ∂ (ν n)) atTop (𝓝 (∫ x, f x ∂μ)) := by
-  have f_bound_one_point : ∃ M:ℝ, ∀ x:ℝ, |f x| ≤ M := bounded_implies_bounded f_bdd
-  obtain ⟨M,pM⟩ := f_bound_one_point
+  -- At first we collect a bunch of lemmas that we just proved.
   obtain ⟨L,pL⟩ := f_Lipschitz
   have f_Lipschitz' : LipschitzWith L f := lipschitzOnWith_univ.mp fun ⦃x⦄ a ⦃y⦄ a_1 ↦ pL x y
   have f_cts : Continuous f := LipschitzWith.continuous pL
   have f_meas : Measurable f := Continuous.borel_measurable f_cts
   let charFun_conv_convergence := fun δ:ℝ≥0 ↦ charFuns_convergence_densities μ δ charFuns_converge
-  let convolution_bdd_μ := fun (δ:ℝ≥0) ↦ (lipschitz_bdd_unif_approx (δ := δ) μ f_bdd f_Lipschitz')
-  let convolution_bdd_ν := fun (n:ℕ) ↦ (fun (δ:ℝ≥0) ↦ (lipschitz_bdd_unif_approx (δ := δ) (ν n) f_bdd f_Lipschitz'))
   apply tendsto_sub_nhds_zero_iff.mp
   show Tendsto (fun n ↦ ∫ x, f x ∂ν n - ∫ x, f x ∂μ) atTop (𝓝 0)
   let F : ℕ → ℕ → ℝ := fun m ↦ (fun n ↦ ∫ x, f x ∂((ν n) ∗ gaussianReal 0 (1/(m+1))) - ∫ x, f x ∂(μ ∗ gaussianReal 0 (1/(m+1))))
-  have unif_approx_mollification := unif_approx_mollified_measure (μ := μ) (ν := ν) f_meas f_Lipschitz' f_bdd
+  have unif_approx_mollification := unif_approx_mollified_measure (μ := μ) (ν := ν) f_Lipschitz' f_bdd
   have conv_limit_F : ∀ᶠ (i : ℕ) in atTop, Tendsto (F i) atTop (𝓝 0) := by
     apply Filter.Eventually.of_forall
     intro m
