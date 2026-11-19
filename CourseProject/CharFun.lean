@@ -580,8 +580,31 @@ lemma convergence_densities_in_L1_implies_weak_convergence {g:ℝ → ℝ} (hL1_
   simp at this
   exact this
 
-/- We will now begin to work with the convolution of μ with a Gaussian measure.
-   The following lemma explains why: in this way we obtain a density for our measure. -/
+-- We will now begin to work with the convolution of μ with a Gaussian measure.
+
+private lemma convolution_identity {μ : Measure ℝ} [IsProbabilityMeasure μ] {A : Set ℝ} (δ:ℝ≥0) (hA : MeasurableSet A) :
+∀ᵐ x ∂μ, ∫⁻ (y:ℝ) , (gaussianPDF 0 δ) y *  A.indicator 1 (x + y) ∂volume = ∫⁻ (y:ℝ) in A , (gaussianPDF 0 δ) (y-x) ∂volume := by
+  apply Filter.Eventually.of_forall
+  intro x
+  have := lintegral_sub_right_eq_self (μ := volume) (fun y ↦ (gaussianPDF 0 δ) y * A.indicator (1:ℝ→ℝ≥0∞) (x+y)) x
+  simp at this
+  rw [← this, ← lintegral_indicator]
+  apply lintegral_congr_ae
+  apply Filter.Eventually.of_forall
+  intro y
+  simp
+  have indicator_eq := Set.indicator_mul_right (i:=y) A (fun y ↦ gaussianPDF 0 δ (y - x)) (fun (y:ℝ) ↦ (1:ℝ≥0∞))
+  have : A.indicator (fun y ↦ (1:ℝ≥0∞)) = A.indicator 1 := by
+    apply Set.indicator_congr
+    unfold Set.EqOn
+    intro a ha
+    simp
+  have : A.indicator (fun y ↦ (1:ℝ≥0∞)) y = A.indicator 1 y := congr_fun this y
+  rw [this] at indicator_eq
+  rw [← indicator_eq]
+  simp
+  measurability
+
 -- TODO: add comments
 lemma gaussian_conv_has_density {δ:ℝ≥0} (hδ : δ ≠ 0) : μ ∗ (gaussianReal 0 δ) = withDensity volume (fun x ↦ ∫⁻ y, gaussianPDF 0 δ (x - y) ∂μ) := by
   ext A
@@ -601,29 +624,8 @@ lemma gaussian_conv_has_density {δ:ℝ≥0} (hδ : δ ≠ 0) : μ ∗ (gaussian
       exact this
     rw [lintegral_congr_ae this]
   rw [this]
-  have : ∀ᵐ x ∂μ, ∫⁻ (y:ℝ) , (gaussianPDF 0 δ) y *  A.indicator 1 (x + y) ∂volume
-    = ∫⁻ (y:ℝ) in A , (gaussianPDF 0 δ) (y-x) ∂volume := by
-    apply Filter.Eventually.of_forall
-    intro x
-    have := lintegral_sub_right_eq_self (μ := volume) (fun y ↦ (gaussianPDF 0 δ) y * A.indicator (1:ℝ→ℝ≥0∞) (x+y)) x
-    simp at this
-    rw [← this, ← lintegral_indicator]
-    apply lintegral_congr_ae
-    apply Filter.Eventually.of_forall
-    intro y
-    simp
-    have indicator_eq := Set.indicator_mul_right (i:=y) A (fun y ↦ gaussianPDF 0 δ (y - x)) (fun (y:ℝ) ↦ (1:ℝ≥0∞))
-    have : A.indicator (fun y ↦ (1:ℝ≥0∞)) = A.indicator 1 := by
-      apply Set.indicator_congr
-      unfold Set.EqOn
-      intro a ha
-      simp
-    have : A.indicator (fun y ↦ (1:ℝ≥0∞)) y = A.indicator 1 y := congr_fun this y
-    rw [this] at indicator_eq
-    rw [← indicator_eq]
-    simp
-    measurability
-  rw [lintegral_congr_ae this]
+  have : MeasurableSet A := by measurability
+  rw [lintegral_congr_ae (convolution_identity (μ := μ) δ this)]
   have : AEMeasurable (Function.uncurry (fun x ↦ (fun y ↦ gaussianPDF 0 δ (y - x)))) (μ.prod (volume.restrict A)) := by measurability
   rw [lintegral_lintegral_swap this]
   -- some side goals
@@ -645,9 +647,7 @@ lemma gaussian_conv_density_cts {δ:ℝ≥0} (hδ : δ ≠0) : Continuous (fun x
   intro a
   let bd := fun x:ℝ ↦ ENNReal.ofReal (√(2*π*δ))⁻¹
   have : gaussianPDF 0 δ (x-a) ≤  bd (x -a) := by
-    unfold bd
-    unfold gaussianPDF
-    unfold gaussianPDFReal
+    unfold bd gaussianPDF gaussianPDFReal
     apply ENNReal.ofReal_le_ofReal
     field_simp
     apply Real.exp_le_one_iff.mpr
@@ -706,23 +706,16 @@ lemma lipschitz_bdd_unif_approx {L : ℝ≥0} {f : ℝ → ℝ} {δ:ℝ≥0} (f_
   unfold conv
   /- We write the assumptions on f in a more convenient form.
      They are given as they are in the theorem statement so that they work nicely at a later stage. -/
-  have f_bound_one_point : ∃ M:ℝ, ∀ x:ℝ, |f x| ≤ M := by
-    obtain ⟨C,pC⟩ := f_bdd
-    use C + |f 0|
-    intro x
-    have := pC x 0
-    rw [Real.dist_eq] at this
-    have triangle_consequence : |f x| ≤ |f x - f 0| + |f 0| := by grind
-    exact le_trans triangle_consequence (add_le_add_left this |f 0|)
+  have f_bound_one_point := bounded_implies_bounded f_bdd
   obtain ⟨M,pM⟩ := f_bound_one_point
   have f_cts := LipschitzWith.continuous f_Lipschitz
-  -- We need a bunch of measurability lemmas...
+  -- We need some measurability lemmas...
   have sum_measurable : AEMeasurable (fun x ↦ x.1 + x.2) (μ.prod (gaussianReal 0 δ)) := by measurability
   have integrand_stmeasurable : AEStronglyMeasurable f (map (fun x ↦ x.1 + x.2) (μ.prod (gaussianReal 0 δ))) := by
     apply Continuous.aestronglyMeasurable
     exact LipschitzWith.continuous f_Lipschitz
   rw [integral_map sum_measurable integrand_stmeasurable]
-  -- And a bunch of integrability lemmas.
+  -- ... and a bunch of integrability lemmas.
   have integrable_f : Integrable f μ := by
     apply Integrable.of_bound
     exact Continuous.aestronglyMeasurable f_cts
@@ -742,7 +735,7 @@ lemma lipschitz_bdd_unif_approx {L : ℝ≥0} {f : ℝ → ℝ} {δ:ℝ≥0} (f_
     apply Filter.Eventually.of_forall
     intro x
     exact pM (x.1+x.2)
-  -- To prove this simple rewrite, we need to know that γ δ = gaussianReal 0 δ is a probability measure.
+  -- To prove this simple rewrite, we need to use the fact that gaussianReal 0 δ is a probability measure.
   have : ∫ x:ℝ, f x ∂μ = ∫ x:ℝ×ℝ, f x.1 ∂ μ.prod (gaussianReal 0 δ) := by
     rw [integral_prod_symm (fun x:ℝ×ℝ ↦ f x.1) integrable_f_circ_proj]
     have : ∫ (y : ℝ), ∫ (x : ℝ), f (x, y).1 ∂μ ∂(gaussianReal 0 δ) = (∫ (x : ℝ), f x ∂μ) * ∫ (y : ℝ), (1:ℝ) ∂(gaussianReal 0 δ) := by simp
