@@ -571,8 +571,7 @@ lemma convergence_densities_in_L1_implies_weak_convergence {g:ℝ → ℝ} (hL1_
   have integrable_gpn : ∀ n, Integrable (fun x ↦ g x * (p n x).toReal) volume := by
     intro n
     exact Integrable.bdd_mul (integrable_p n) meas_g bd
-  have integrable_gf : Integrable (fun x ↦ g x * (f x).toReal) := by
-    exact Integrable.bdd_mul integrable_f meas_g bd
+  have integrable_gf : Integrable (fun x ↦ g x * (f x).toReal) := Integrable.bdd_mul integrable_f meas_g bd
   have : (fun n ↦ ∫ x:ℝ, g x * (p n x).toReal ∂volume - ∫ x:ℝ, g x * (f x).toReal ∂volume) = (fun n ↦ ∫ x:ℝ, g x * ((p n x).toReal - (f x).toReal) ∂volume) := by
     ext n
     rw [Eq.symm (integral_sub (integrable_gpn n) integrable_gf)]
@@ -582,6 +581,7 @@ lemma convergence_densities_in_L1_implies_weak_convergence {g:ℝ → ℝ} (hL1_
   rw [this]
   apply (tendsto_zero_iff_abs_tendsto_zero (fun n ↦ ∫ x:ℝ, g x * ((p n x).toReal - (f x).toReal) ∂volume)).mpr
   have non_neg : ∀ n, (abs ∘ fun n ↦ ∫ (x : ℝ), g x * ((p n x).toReal - (f x).toReal)) n ≥ 0 := by simp
+  -- This inequality is the main content of the proof. After this and squeeze, hL1_convergence does the trick.
   have : ∀ n, (abs ∘ fun n ↦ ∫ (x : ℝ), g x * ((p n x).toReal - (f x).toReal)) n ≤ |M| * ∫ x:ℝ, |(p n x).toReal - (f x).toReal| ∂volume := by
     intro n
     simp
@@ -701,6 +701,7 @@ lemma gaussian_conv_density_cts {δ:ℝ≥0} (hδ : δ ≠0) : Continuous (fun x
     fun_prop
   exact Continuous.tendsto' this x (gaussianPDF 0 δ (x - a)) rfl
 
+-- We will not be using the above lemma, but rather this consequence of it in the following.
 lemma gaussian_conv_density_toReal_cts {δ:ℝ≥0} (hδ : δ ≠0) : Continuous (fun x ↦ (∫⁻ y, gaussianPDF 0 δ (x - y) ∂μ).toReal) := by
   apply continuous_iff_continuousAt.mpr
   intro x
@@ -723,8 +724,6 @@ lemma gaussian_conv_density_toReal_cts {δ:ℝ≥0} (hδ : δ ≠0) : Continuous
     exact fun x a ↦ continuousAt_toReal a
   refine ContinuousAt.comp' (this (∫⁻ (y : ℝ), gaussianPDF 0 δ (x - y) ∂μ) (lintegral_finite x)) ?_
   exact Continuous.continuousAt (gaussian_conv_density_cts μ hδ)
-
-
 
 lemma gaussian_charFun_integrable {δ:ℝ≥0} (hδ : δ ≠ 0) : Integrable (charFun (gaussianReal 0 δ)) volume := by
   have : charFun (gaussianReal 0 δ) = (fun t:ℝ ↦ cexp (- δ * ↑t ^ 2 / 2)) := by
@@ -855,7 +854,7 @@ lemma lipschitz_bdd_unif_approx {L : ℝ≥0} {f : ℝ → ℝ} {δ:ℝ≥0} (f_
   have : 0 ≤ ↑L := by exact zero_le
   exact mul_le_mul_of_nonneg_left claim_up_to_const this
 
-lemma charFuns_convergence_densities (δ:ℝ≥0) (charFuns_converge : ∀ t:ℝ, Tendsto (fun n ↦ (charFun (ν n) t)) atTop (𝓝 (charFun μ t))) :
+lemma charFuns_convergence_convolution (δ:ℝ≥0) (charFuns_converge : ∀ t:ℝ, Tendsto (fun n ↦ (charFun (ν n) t)) atTop (𝓝 (charFun μ t))) :
   ∀ t:ℝ, Tendsto (fun n ↦ (charFun (ν n ∗ (gaussianReal 0 δ)) t)) atTop (𝓝 (charFun (μ ∗ (gaussianReal 0 δ)) t)) := by
     intro t
     rw [charFun_conv]
@@ -1002,6 +1001,7 @@ private lemma unif_approx_mollified_measure {μ : Measure ℝ}[IsProbabilityMeas
      and because
             ∫ f d(ν n ∗ gaussianReal 0 δ) → ∫ f d(ν n) uniformly in n,
      as well as ∫ f d(μ ∗ gaussianReal 0 δ) → ∫ f dμ, the convergence ∫ f d(ν n) → ∫ f dμ holds as well. -/
+
 lemma charFun_convergence_Lipschitz {f : ℝ → ℝ} (charFuns_converge : ∀ t:ℝ, Tendsto (fun n ↦ (charFun (ν n) t)) atTop (𝓝 (charFun μ t)))
    (f_bdd : ∃ C, ∀ (x y : ℝ), dist (f x) (f y) ≤ C) (f_Lipschitz : ∃ L, LipschitzWith L f) :
    Tendsto (fun n ↦ ∫ x, f x ∂ (ν n)) atTop (𝓝 (∫ x, f x ∂μ)) := by
@@ -1010,7 +1010,7 @@ lemma charFun_convergence_Lipschitz {f : ℝ → ℝ} (charFuns_converge : ∀ t
   have f_Lipschitz' : LipschitzWith L f := lipschitzOnWith_univ.mp fun ⦃x⦄ a ⦃y⦄ a_1 ↦ pL x y
   have f_cts : Continuous f := LipschitzWith.continuous pL
   have f_meas : Measurable f := Continuous.borel_measurable f_cts
-  let charFun_conv_convergence := fun δ:ℝ≥0 ↦ charFuns_convergence_densities μ δ charFuns_converge
+  let charFun_conv_convergence := fun δ:ℝ≥0 ↦ charFuns_convergence_convolution μ δ charFuns_converge
   apply tendsto_sub_nhds_zero_iff.mp
   show Tendsto (fun n ↦ ∫ x, f x ∂ν n - ∫ x, f x ∂μ) atTop (𝓝 0)
   let F : ℕ → ℕ → ℝ := fun m ↦ (fun n ↦ ∫ x, f x ∂((ν n) ∗ gaussianReal 0 (1/(m+1))) - ∫ x, f x ∂(μ ∗ gaussianReal 0 (1/(m+1))))
