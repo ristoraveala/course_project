@@ -915,15 +915,17 @@ private lemma conv_limit_exists  {μ : Measure ℝ} [IsProbabilityMeasure μ] {�
     intro n
     exact Eq.symm (gaussian_conv_has_density (ν n) hδ)
   have exists_density : volume.withDensity g = μ ∗ (gaussianReal 0 δ) := Eq.symm (gaussian_conv_has_density μ hδ)
-
   have p_cts : ∀ n , Continuous (fun x ↦ (p n x).toReal) := by
     intro n
     unfold p
     exact gaussian_conv_density_toReal_cts (ν n) hδ
-    sorry
-  have p_cts' : ∀ n , Continuous (fun x ↦ ((p n x).toReal:ℂ)) := by sorry
-  have g_cts : Continuous (fun x ↦ (g x).toReal) := by sorry
-  have g_cts' : Continuous (fun x ↦ ((g x).toReal:ℂ)) := by sorry
+  have p_cts' : ∀ n , Continuous (fun x ↦ ((p n x).toReal:ℂ)) := by
+    intro n
+    exact Continuous.comp' Complex.continuous_ofReal (p_cts n)
+  have g_cts : Continuous (fun x ↦ (g x).toReal) := by
+    unfold g
+    exact gaussian_conv_density_toReal_cts μ hδ
+  have g_cts' : Continuous (fun x ↦ ((g x).toReal:ℂ)) := Continuous.comp' Complex.continuous_ofReal g_cts
   have p_meas : ∀ (n : ℕ), Measurable (p n) := by
     intro n
     measurability
