@@ -668,6 +668,15 @@ lemma gaussian_conv_has_density {δ:ℝ≥0} (hδ : δ ≠ 0) : μ ∗ (gaussian
   exact set_measurable
   exact set_measurable
 
+lemma gaussian_density_bd {δ:ℝ≥0} (hδ : δ ≠ 0) : (fun x ↦ gaussianPDF 0 δ x) ≤ (fun x ↦ ENNReal.ofReal (√(2*π*δ))⁻¹) := by
+  intro x
+  unfold gaussianPDF gaussianPDFReal
+  apply ENNReal.ofReal_le_ofReal
+  field_simp
+  apply Real.exp_le_one_iff.mpr
+  field_simp ; simp
+  exact sq_nonneg x
+
 -- This lemma is essentially proven as a consequence of dominated convergence theorem.
 lemma gaussian_conv_density_cts {δ:ℝ≥0} (hδ : δ ≠0) : Continuous (fun x ↦ ∫⁻ y, gaussianPDF 0 δ (x - y) ∂μ) := by
   apply continuous_iff_continuousAt.mpr
@@ -680,15 +689,7 @@ lemma gaussian_conv_density_cts {δ:ℝ≥0} (hδ : δ ≠0) : Continuous (fun x
   intro x
   apply Filter.Eventually.of_forall
   intro a
-  let bd := fun x:ℝ ↦ ENNReal.ofReal (√(2*π*δ))⁻¹
-  have : gaussianPDF 0 δ (x-a) ≤  bd (x -a) := by
-    unfold bd gaussianPDF gaussianPDFReal
-    apply ENNReal.ofReal_le_ofReal
-    field_simp
-    apply Real.exp_le_one_iff.mpr
-    field_simp ; simp
-    exact sq_nonneg (x - a)
-  exact this
+  exact gaussian_density_bd hδ (x-a)
   rw [show ∫⁻ (a : ℝ), ENNReal.ofReal (√(2 * π * ↑δ))⁻¹ ∂μ  = ENNReal.ofReal (√(2 * π * ↑δ))⁻¹ by simp]
   exact coe_ne_top
   apply Filter.Eventually.of_forall
@@ -700,6 +701,29 @@ lemma gaussian_conv_density_cts {δ:ℝ≥0} (hδ : δ ≠0) : Continuous (fun x
     fun_prop
   exact Continuous.tendsto' this x (gaussianPDF 0 δ (x - a)) rfl
 
+lemma gaussian_conv_density_toReal_cts {δ:ℝ≥0} (hδ : δ ≠0) : Continuous (fun x ↦ ∫⁻ y, gaussianPDF 0 δ (x - y) ∂μ) := by
+  set f : ℝ → ℝ≥0∞ := fun x:ℝ ↦ ENNReal.ofReal (∫⁻ y, gaussianPDF 0 δ (x - y) ∂μ).toReal with hf
+  have density_is_real_fun : f = (fun x ↦ ∫⁻ y, gaussianPDF 0 δ (x - y) ∂μ) := by
+    ext x
+    rw [hf]
+    simp
+    push Not
+    apply lt_top_iff_ne_top.mp
+    have : (fun y ↦ gaussianPDF 0 δ (x - y)) ≤ (fun y ↦ ENNReal.ofReal (√(2 * π * ↑δ))⁻¹) := by
+      intro y
+      exact gaussian_density_bd hδ (x-y)
+    have := lintegral_mono (μ := μ) this
+    apply lt_of_le_of_lt this
+    rw [lintegral_const]
+    simp
+    apply mul_lt_top
+    exact ofReal_lt_top
+    apply mul_lt_top
+    exact ofReal_lt_top
+    simp
+  rw [← density_is_real_fun, hf]
+  have : Continuous (fun x ↦ ∫⁻ (y : ℝ), gaussianPDF 0 δ (x - y) ∂μ) := gaussian_conv_density_cts μ hδ
+  exact (continuous_congr (congrFun (id (Eq.symm density_is_real_fun)))).mp this
 lemma gaussian_charFun_integrable {δ:ℝ≥0} (hδ : δ ≠ 0) : Integrable (charFun (gaussianReal 0 δ)) volume := by
   have : charFun (gaussianReal 0 δ) = (fun t:ℝ ↦ cexp (- δ * ↑t ^ 2 / 2)) := by
     ext t
@@ -889,7 +913,11 @@ private lemma conv_limit_exists  {μ : Measure ℝ} [IsProbabilityMeasure μ] {�
     intro n
     exact Eq.symm (gaussian_conv_has_density (ν n) hδ)
   have exists_density : volume.withDensity g = μ ∗ (gaussianReal 0 δ) := Eq.symm (gaussian_conv_has_density μ hδ)
-  have p_cts : ∀ n , Continuous (fun x ↦ (p n x).toReal) := by sorry
+
+  have p_cts : ∀ n , Continuous (fun x ↦ (p n x).toReal) := by
+    intro n
+    have := gaussian_conv_density_cts (ν n) hδ
+    sorry
   have p_cts' : ∀ n , Continuous (fun x ↦ ((p n x).toReal:ℂ)) := by sorry
   have g_cts : Continuous (fun x ↦ (g x).toReal) := by sorry
   have g_cts' : Continuous (fun x ↦ ((g x).toReal:ℂ)) := by sorry
