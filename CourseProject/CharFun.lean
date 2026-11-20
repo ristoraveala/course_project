@@ -557,14 +557,22 @@ lemma bounded_implies_bounded {g : ℝ → ℝ} (g_bdd : ∃C ,  ∀ (x y : ℝ)
   have triangle_consequence : |g x| ≤ |g x - g 0| + |g 0| := by grind
   exact le_trans triangle_consequence (add_le_add_left this |g 0|)
 
--- Now as a consequence of the previous result, we get the following lemma, from which the claim that the lemmas name makes is a straightforward conseqence.
+-- Now as a consequence of charFun_convergence_with_densities, we get the following lemma, from which the claim that the lemmas name makes is a straightforward conseqence.
 include p_measurable p_cts f_measurable f_cts in
 lemma convergence_densities_in_L1_implies_weak_convergence {g:ℝ → ℝ} (hL1_convergence : Tendsto (fun n ↦ ∫ x:ℝ, |(p n x).toReal - (f x).toReal| ∂volume) atTop (𝓝 0))
-  (g_bdd : ∃C ,  ∀ (x y : ℝ), dist (g x) (g y) ≤ C) (g_meas : Measurable g) :
+  (g_bdd : ∃C ,  ∀ (x y : ℝ), dist (g x) (g y) ≤ C) (g_meas : Measurable g)
+  (exists_densities_ν : ∀ n:ℕ, withDensity volume (p n) = (ν n)) (exists_density_μ : withDensity volume f = μ) :
   Tendsto (fun n ↦ ∫ x:ℝ, g x * (p n x).toReal ∂volume - ∫ x:ℝ, g x * (f x).toReal ∂volume) atTop (𝓝 0) := by
   obtain ⟨M,pM⟩ := bounded_implies_bounded g_bdd
-  have integrable_gpn : ∀ n, Integrable (fun x ↦ g x * (p n x).toReal) volume := sorry
-  have integrable_gf : Integrable (fun x ↦ g x * (f x).toReal) := sorry
+  have meas_g : AEStronglyMeasurable g volume := Measurable.aestronglyMeasurable g_meas
+  have bd : ∀ᵐ (x : ℝ) ∂volume, ‖g x‖ ≤ M := by exact ae_of_all volume pM
+  have integrable_p := fun n:ℕ ↦ integrable_density (ν n) (p_measurable n) (exists_densities_ν n)
+  have integrable_f := integrable_density μ f_measurable (exists_density_μ)
+  have integrable_gpn : ∀ n, Integrable (fun x ↦ g x * (p n x).toReal) volume := by
+    intro n
+    exact Integrable.bdd_mul (integrable_p n) meas_g bd
+  have integrable_gf : Integrable (fun x ↦ g x * (f x).toReal) := by
+    exact Integrable.bdd_mul integrable_f meas_g bd
   have : (fun n ↦ ∫ x:ℝ, g x * (p n x).toReal ∂volume - ∫ x:ℝ, g x * (f x).toReal ∂volume) = (fun n ↦ ∫ x:ℝ, g x * ((p n x).toReal - (f x).toReal) ∂volume) := by
     ext n
     rw [Eq.symm (integral_sub (integrable_gpn n) integrable_gf)]
@@ -585,8 +593,18 @@ lemma convergence_densities_in_L1_implies_weak_convergence {g:ℝ → ℝ} (hL1_
       have non_neg : 0 ≤ |(p n x).toReal - (f x).toReal| := abs_nonneg ((p n x).toReal - (f x).toReal)
       have : |g x| ≤ |M| := le_trans (pM x) (le_abs_self M)
       exact mul_le_mul_of_nonneg_right this non_neg
-    have hg : Integrable (fun x:ℝ ↦ |M| * |(p n x).toReal - (f x).toReal|) := sorry
-    have hf : Integrable (fun x:ℝ ↦ |g x| * |(p n x).toReal - (f x).toReal|) := sorry
+    have : Integrable (fun x:ℝ ↦ |(p n x).toReal - (f x).toReal|) := by
+      apply Integrable.abs
+      apply Integrable.sub
+      exact integrable_p n
+      exact integrable_f
+    have hg : Integrable (fun x:ℝ ↦ |M| * |(p n x).toReal - (f x).toReal|) := Integrable.const_mul this |M|
+    have hf : Integrable (fun x:ℝ ↦ |g x| * |(p n x).toReal - (f x).toReal|) := by
+      have meas_abs : AEStronglyMeasurable (fun x:ℝ ↦ |g x|) := by measurability
+      have bd_abs : ∀ᵐ (x : ℝ), ‖|g x|‖ ≤ M := by
+        simp ; simp at bd
+        exact bd
+      exact Integrable.bdd_mul this meas_abs bd_abs
     apply le_trans (integral_mono hf hg bdd)
     rw [integral_const_mul]
   apply squeeze_zero non_neg this
@@ -752,20 +770,6 @@ lemma lipschitz_bdd_unif_approx {L : ℝ≥0} {f : ℝ → ℝ} {δ:ℝ≥0} (f_
     apply Filter.Eventually.of_forall
     intro x
     exact pM (x.1+x.2)
-  -- To prove this simple rewrite, we need to use the fact that gaussianReal 0 δ is a probability measure.
-  have : ∫ x:ℝ, f x ∂μ = ∫ x:ℝ×ℝ, f x.1 ∂ μ.prod (gaussianReal 0 δ) := by
-    rw [integral_prod_symm (fun x:ℝ×ℝ ↦ f x.1) integrable_f_circ_proj]
-    have : ∫ (y : ℝ), ∫ (x : ℝ), f (x, y).1 ∂μ ∂(gaussianReal 0 δ) = (∫ (x : ℝ), f x ∂μ) * ∫ (y : ℝ), (1:ℝ) ∂(gaussianReal 0 δ) := by simp
-    simp [this, show ∫ (y : ℝ), (1:ℝ) ∂(gaussianReal 0 δ) = 1 by simp]
-  rw [this, ← integral_sub integrable_f_circ_proj integrable_f_circ_sum]
-  -- Now we obtain the goal by estimating |f x.1 - f (x.1 + x.2)| ≤ L * |x.2| and estimating ∫ y, |y| γ δ ≤ √δ.
-  apply le_trans abs_integral_le_integral_abs
-  have lip_bd : (fun x:ℝ×ℝ ↦ |f x.1 - f (x.1 + x.2)|) ≤ (fun x:ℝ×ℝ ↦ L * |x.2|) := by
-    intro x
-    simp
-    have := lipschitzWith_iff_dist_le_mul.mp f_Lipschitz x.1 (x.1+x.2)
-    simp[Real.dist_eq] at this
-    exact this
   have proj_integrable : Integrable (fun x:ℝ×ℝ ↦ L * |x.2|) (μ.prod (gaussianReal 0 δ)) := by
     have : AEStronglyMeasurable (fun x:ℝ×ℝ ↦ L * |x.2|) (μ.prod (gaussianReal 0 δ)) := by measurability
     apply (integrable_prod_iff' this).mpr
@@ -782,6 +786,21 @@ lemma lipschitz_bdd_unif_approx {L : ℝ≥0} {f : ℝ → ℝ} {δ:ℝ≥0} (f_
   have diff_integrable : Integrable (fun x:ℝ×ℝ ↦ |f x.1 - f (x.1+x.2)|) (μ.prod (gaussianReal 0 δ)) := by
     apply Integrable.abs
     exact Integrable.sub' integrable_f_circ_proj integrable_f_circ_sum
+  /- Now after getting all of the integrability lemmas into context, we focus on the main proof.
+     At first, to prove this simple rewrite, we need to use the fact that gaussianReal 0 δ is a probability measure. -/
+  have : ∫ x:ℝ, f x ∂μ = ∫ x:ℝ×ℝ, f x.1 ∂ μ.prod (gaussianReal 0 δ) := by
+    rw [integral_prod_symm (fun x:ℝ×ℝ ↦ f x.1) integrable_f_circ_proj]
+    have : ∫ (y : ℝ), ∫ (x : ℝ), f (x, y).1 ∂μ ∂(gaussianReal 0 δ) = (∫ (x : ℝ), f x ∂μ) * ∫ (y : ℝ), (1:ℝ) ∂(gaussianReal 0 δ) := by simp
+    simp [this, show ∫ (y : ℝ), (1:ℝ) ∂(gaussianReal 0 δ) = 1 by simp]
+  rw [this, ← integral_sub integrable_f_circ_proj integrable_f_circ_sum]
+  -- Now we obtain the goal by estimating |f x.1 - f (x.1 + x.2)| ≤ L * |x.2| and estimating ∫ y, |y| γ δ ≤ √δ.
+  apply le_trans abs_integral_le_integral_abs
+  have lip_bd : (fun x:ℝ×ℝ ↦ |f x.1 - f (x.1 + x.2)|) ≤ (fun x:ℝ×ℝ ↦ L * |x.2|) := by
+    intro x
+    simp
+    have := lipschitzWith_iff_dist_le_mul.mp f_Lipschitz x.1 (x.1+x.2)
+    simp[Real.dist_eq] at this
+    exact this
   apply le_trans (integral_mono diff_integrable proj_integrable lip_bd)
   have : ∫ (x : ℝ × ℝ), ↑L * |x.2| ∂μ.prod (gaussianReal 0 δ) = L * ∫ u:ℝ, |u| ∂(gaussianReal 0 δ) := by
     rw [integral_prod_symm (μ := μ) (ν := gaussianReal 0 δ) (fun x:ℝ×ℝ ↦ (L:ℝ) * |x.2|)]
@@ -895,7 +914,7 @@ private lemma conv_limit_exists  {μ : Measure ℝ} [IsProbabilityMeasure μ] {�
   rw [this]
   have charFuns_dominated := charFun_dominated (μ := μ) (ν := ν) hδ
   have := charFun_convergence_with_densities (μ ∗ gaussianReal 0 δ) p_meas p_cts' g_meas g_cts' (charFun_conv_convergence δ) exists_densities exists_density charFuns_dominated
-  exact convergence_densities_in_L1_implies_weak_convergence p_meas p_cts' g_meas g_cts' this f_bdd f_meas
+  exact convergence_densities_in_L1_implies_weak_convergence (μ ∗ gaussianReal 0 δ) p_meas p_cts' g_meas g_cts' this f_bdd f_meas exists_densities exists_density
 
 -- The statement is mathematically easy, but it requires enough work in Lean to warrant being its own lemma.
 private lemma ineq_for_L (L:ℝ≥0) : ∀ε>0, ∃ N:ℕ,  2 * L * √(1/(N+1)) < ε := by
