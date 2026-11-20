@@ -347,12 +347,54 @@ lemma charFun_inversion {g : ℝ → ℝ≥0∞} (hg : Measurable g) (cts_g : Co
   have := Continuous.fourierInv_fourier_eq cts_g density_is_integrable fourier_is_integrable
   exact congr_fun this x
 
+/- In the proof of lemma charFun_pointwise_convergence_with_densities, we need the consequence of the above lemma for
+   the difference of two characteristic functions. We phrase it in the exact way that it is needed. Essentially we
+   need some integrability results to rigorously justify the use of the formula
+              ∫ exp (...) (f - g) = ∫ exp (...) f - ∫ exp(...) g,
+   and we do this in a separate private lemma for clenlyness. -/
+include p_measurable p_cts f_measurable f_cts in
+private lemma charFun_inversion_for_ptwise_convergence {μ : Measure ℝ} [IsProbabilityMeasure μ] {ν : ℕ → Measure ℝ} [∀ n, IsProbabilityMeasure (ν n)]
+(exists_densities_ν : ∀ n:ℕ, withDensity volume (p n) = (ν n)) (exists_density_μ : withDensity volume f = μ)
+(charFuns_ν_integrable : ∀ n:ℕ, Integrable (charFun (ν n)) volume)
+(charFun_μ_integrable : Integrable (charFun μ) volume) (x:ℝ):
+(fun n ↦ (p n x).toReal - ((f x).toReal:ℂ)) = (fun n ↦ ∫ ξ:ℝ, cexp (2*π*I * x * ξ) * (charFun (ν n) (-2*π*ξ) - charFun μ (-2*π*ξ)) ∂volume) := by
+  ext n
+  have := charFun_inversion (ν n) (p_measurable n) (p_cts n) (exists_densities_ν n) (charFuns_ν_integrable n)
+  rw [congr_fun this x]
+  have := charFun_inversion μ f_measurable f_cts exists_density_μ charFun_μ_integrable
+  rw [congr_fun this x]
+  -- From this point onwards we just need to justify the use of the formula ∫ exp (...) (f - g) = ∫ exp (...) f - ∫ exp(...) g.
+  have cexp_bdd : ∀ᵐ (ξ : ℝ) ∂volume, ‖(fun ξ:ℝ ↦ cexp (2 * ↑π * I * ↑x* ↑ξ)) ξ‖ ≤ 1 := by
+    apply Filter.Eventually.of_forall
+    intro ξ
+    simp
+    have : 2 * ↑π * I * ↑x* ↑ξ = I * ((2*π*x*ξ):ℝ) := by simp ; grind
+    rw [this]
+    have := norm_exp_I_mul_ofReal (2*π*x*ξ)
+    exact le_of_eq this
+  have cexp_meas : AEStronglyMeasurable (fun ξ:ℝ ↦ cexp (2 * ↑π * I * ↑x* ↑ξ)) volume := by measurability
+  have integrable_n : Integrable (fun ξ:ℝ ↦ cexp (2 * ↑π * I * ↑x* ↑ξ) * charFun (ν n) (-2 * π * ξ)) volume := by
+    have : Integrable (fun ξ:ℝ ↦ charFun (ν n) (-2 * π * ξ)) volume := by
+      have : -2*π ≠ 0 := by norm_num
+      exact Integrable.comp_mul_left' (charFuns_ν_integrable n) this
+    exact Integrable.bdd_mul this cexp_meas cexp_bdd
+  have integrable_μ : Integrable (fun ξ:ℝ ↦ cexp (2 * ↑π * I * ↑x * ↑ξ) * charFun μ (-2 * π * ξ)) volume := by
+    have : Integrable (fun ξ:ℝ ↦ charFun μ (-2 * π * ξ)) volume := by
+      have : -2*π ≠ 0 := by norm_num
+      exact Integrable.comp_mul_left' charFun_μ_integrable this
+    exact Integrable.bdd_mul this cexp_meas cexp_bdd
+  rw [← integral_sub integrable_n integrable_μ]
+  apply integral_congr_ae
+  apply Filter.Eventually.of_forall
+  intro ξ
+  field_simp
+
 include p_measurable p_cts f_measurable f_cts in
 lemma charFun_pointwise_convergence_with_densities (charFuns_converge : ∀ t:ℝ, Tendsto (fun n ↦ (charFun (ν n) t)) atTop (𝓝 (charFun μ t)))
   (exists_densities_ν : ∀ n:ℕ, withDensity volume (p n) = (ν n)) (exists_density_μ : withDensity volume f = μ)
   (charFuns_dominated : ∃ g : ℝ → ℝ, Integrable g volume ∧ (∀ (n:ℕ) (t:ℝ), ‖charFun (ν n) t‖ ≤ g t) ∧ ∀ t, ‖charFun μ t‖ ≤ g t) :
   ∀ x : ℝ, Tendsto (fun n ↦ ((p n x).toReal - ((f x).toReal):ℂ)) atTop (𝓝 0) := by
-  -- Some preliminary parts
+  -- Some preliminary parts, including two integrability lemmas we need.
   obtain ⟨g,pg⟩ := charFuns_dominated
   have charFuns_ν_integrable : ∀ n:ℕ, Integrable (charFun (ν n)) volume := by
     intro n
@@ -369,41 +411,10 @@ lemma charFun_pointwise_convergence_with_densities (charFuns_converge : ∀ t:�
     exact Integrable.mono' pg.left h_measurable bdd
   -- The main proof begins.
   intro x
-  -- Now we apply the inversion formula.
-  have : (fun n ↦ (p n x).toReal - ((f x).toReal:ℂ))
-    = (fun n ↦ ∫ ξ:ℝ, cexp (2*π*I * x * ξ) * (charFun (ν n) (-2*π*ξ) - charFun μ (-2*π*ξ)) ∂volume) := by
-    ext n
-    have := charFun_inversion (ν n) (p_measurable n) (p_cts n) (exists_densities_ν n) (charFuns_ν_integrable n)
-    rw [congr_fun this x]
-    have := charFun_inversion μ f_measurable f_cts exists_density_μ charFun_μ_integrable
-    rw [congr_fun this x]
-    have cexp_bdd : ∀ᵐ (ξ : ℝ) ∂volume, ‖(fun ξ:ℝ ↦ cexp (2 * ↑π * I * ↑x* ↑ξ)) ξ‖ ≤ 1 := by
-      apply Filter.Eventually.of_forall
-      intro ξ
-      simp
-      have : 2 * ↑π * I * ↑x* ↑ξ = I * ((2*π*x*ξ):ℝ) := by simp ; grind
-      rw [this]
-      have := norm_exp_I_mul_ofReal (2*π*x*ξ)
-      exact le_of_eq this
-    have cexp_meas : AEStronglyMeasurable (fun ξ:ℝ ↦ cexp (2 * ↑π * I * ↑x* ↑ξ)) volume := by measurability
-    have integrable_n : Integrable (fun ξ:ℝ ↦ cexp (2 * ↑π * I * ↑x* ↑ξ) * charFun (ν n) (-2 * π * ξ)) volume := by
-      have : Integrable (fun ξ:ℝ ↦ charFun (ν n) (-2 * π * ξ)) volume := by
-        have : -2*π ≠ 0 := by norm_num
-        exact Integrable.comp_mul_left' (charFuns_ν_integrable n) this
-      exact Integrable.bdd_mul this cexp_meas cexp_bdd
-    have integrable_μ : Integrable (fun ξ:ℝ ↦ cexp (2 * ↑π * I * ↑x * ↑ξ) * charFun μ (-2 * π * ξ)) volume := by
-      have : Integrable (fun ξ:ℝ ↦ charFun μ (-2 * π * ξ)) volume := by
-        have : -2*π ≠ 0 := by norm_num
-        exact Integrable.comp_mul_left' charFun_μ_integrable this
-      exact Integrable.bdd_mul this cexp_meas cexp_bdd
-    rw [← integral_sub integrable_n integrable_μ]
-    apply integral_congr_ae
-    apply Filter.Eventually.of_forall
-    intro ξ
-    field_simp
-  rw [this]
-  have : ∫ x:ℝ, (0:ℂ) ∂volume = 0 := integral_zero ℝ ℂ
-  rw [← this]
+  -- Now we apply the inversion formula proven above, and then rewrite the RHS as ∫ 0 dx so that it is in the right form for dominated convergence.
+  rw [charFun_inversion_for_ptwise_convergence p_measurable p_cts f_measurable f_cts
+      exists_densities_ν exists_density_μ charFuns_ν_integrable charFun_μ_integrable x,
+      ← integral_zero ℝ ℂ]
   -- The assumptions are so that we can now just use dominated convergence.
   apply tendsto_integral_filter_of_dominated_convergence (bound := fun t ↦ 2 * g (-2*π*t))
   apply Filter.Eventually.of_forall
@@ -447,50 +458,53 @@ lemma abs_value_min (a b : ℝ) : |a-b| = a + b - 2*(a ⊓ b) := by grind
    after that. -/
 
 include p_measurable p_cts f_measurable f_cts in
+private lemma abs_min_formula_consequence {ν : ℕ → Measure ℝ} [∀ n, IsProbabilityMeasure (ν n)] {μ : Measure ℝ} [IsProbabilityMeasure μ]
+(exists_densities_ν : ∀ n:ℕ, withDensity volume (p n) = (ν n)) (exists_density_μ : withDensity volume f = μ) :
+(fun n ↦ ∫x:ℝ, |(p n x).toReal - (f x).toReal| ∂volume) = (fun n ↦ 2 - 2 * ∫ x:ℝ, ((p n x).toReal) ⊓ ((f x).toReal) ∂volume) := by
+  ext n
+  -- At fist we write 2 = 1+1 in the RHS, for some reason one needs to hold lean compilers hand here.
+  have : 2 - 2 * ∫ x:ℝ, ((p n x).toReal) ⊓ ((f x).toReal) ∂volume = 1 + 1 - 2 * ∫ x:ℝ, ((p n x).toReal) ⊓ ((f x).toReal) ∂volume := by
+    simp
+    norm_num
+  rw [this]
+  -- We replace both 1's as the integrals of suitable densities here. In this part we need that p n and f are densities of probability measures.
+  nth_rw 1 [← integral_of_density_eq_one (ν n) (p_measurable n) (exists_densities_ν n)]
+  rw [← integral_of_density_eq_one μ f_measurable exists_density_μ]
+  -- We use linearity of integral to write both sides of the equation as ∫ (something). This is probabily a bit clumsily written...
+  have : ((∫ (x : ℝ), (p n x).toReal ∂volume) + ∫ (x : ℝ), (f x).toReal ∂volume) - 2 * ∫ (x : ℝ), min (p n x).toReal (f x).toReal ∂volume
+    = ∫ (x : ℝ), (p n x).toReal + (f x).toReal - 2 *  min (p n x).toReal (f x).toReal ∂volume := by
+    have pn_integrable := integrable_density (ν n) (p_measurable n) (exists_densities_ν n)
+    have f_integrable := integrable_density μ f_measurable exists_density_μ
+    have : (∫ (x : ℝ), (p n x).toReal) + ∫ (x : ℝ), (f x).toReal = ∫ (x : ℝ), (p n x).toReal + (f x).toReal := by
+      have := integral_add pn_integrable f_integrable
+      exact Eq.symm this
+    rw [this]
+    have : (∫ (x : ℝ), (p n x).toReal + (f x).toReal) - 2 * ∫ (x : ℝ), min (p n x).toReal (f x).toReal
+      = (∫ (x : ℝ), (p n x).toReal + (f x).toReal) + (- 2) * ∫ (x : ℝ), min (p n x).toReal (f x).toReal := by grind
+    rw [this]
+    rw [← integral_const_mul (-2:ℝ) (fun x:ℝ ↦ min (p n x).toReal (f x).toReal)]
+    have pn_plus_f_integrable : Integrable (fun x:ℝ ↦ (p n x).toReal + (f x).toReal) :=
+      (integrable_add_iff_integrable_left' f_integrable).mpr pn_integrable
+    have f_integrable' : Integrable (fun x:ℝ ↦ -2*min (p n x).toReal (f x).toReal) :=
+      Integrable.const_mul (Integrable.inf pn_integrable f_integrable) (-2)
+    have := integral_add pn_plus_f_integrable f_integrable'
+    rw [← this]
+    grind
+  rw [this]
+  -- At this point we are ready to reduce the claim to an application of the abs_value_min lemma.
+  apply integral_congr_ae
+  apply Filter.Eventually.of_forall
+  intro x
+  simp
+  exact abs_value_min (p n x).toReal (f x).toReal
+
+include p_measurable p_cts f_measurable f_cts in
 lemma charFun_convergence_with_densities (charFuns_converge : ∀ t:ℝ, Tendsto (fun n ↦ (charFun (ν n) t)) atTop (𝓝 (charFun μ t)))
   (exists_densities_ν : ∀ n:ℕ, withDensity volume (p n) = (ν n)) (exists_density_μ : withDensity volume f = μ)
   (charFuns_dominated : ∃ g : ℝ → ℝ, Integrable g volume ∧ (∀ (n:ℕ) (t:ℝ), ‖charFun (ν n) t‖ ≤ g t) ∧ ∀ t, ‖charFun μ t‖ ≤ g t) :
   Tendsto (fun n ↦ ∫x:ℝ, |(p n x).toReal - (f x).toReal| ∂volume) atTop (𝓝 0) := by
-  -- This is a key step: we rewrite the difference so that we can apply dominated convergence to the RHS.
-  have : (fun n ↦ ∫x:ℝ, |(p n x).toReal - (f x).toReal| ∂volume)
-    = (fun n ↦ 2 - 2 * ∫ x:ℝ, ((p n x).toReal) ⊓ ((f x).toReal) ∂volume) := by
-    ext n
-    -- At fist we write 2 = 1+1 in the RHS, for some reason one needs to hold lean compilers hand here.
-    have : 2 - 2 * ∫ x:ℝ, ((p n x).toReal) ⊓ ((f x).toReal) ∂volume = 1 + 1 - 2 * ∫ x:ℝ, ((p n x).toReal) ⊓ ((f x).toReal) ∂volume := by
-      simp
-      norm_num
-    rw [this]
-    -- We replace both 1's as the integrals of suitable densities here. In this part we need that p n and f are densities of probability measures.
-    nth_rw 1 [← integral_of_density_eq_one (ν n) (p_measurable n) (exists_densities_ν n)]
-    rw [← integral_of_density_eq_one μ f_measurable exists_density_μ]
-    -- We use linearity of integral to write both sides of the equation as ∫ (something). This is probabily a bit clumsily written...
-    have : ((∫ (x : ℝ), (p n x).toReal ∂volume) + ∫ (x : ℝ), (f x).toReal ∂volume) - 2 * ∫ (x : ℝ), min (p n x).toReal (f x).toReal ∂volume
-      = ∫ (x : ℝ), (p n x).toReal + (f x).toReal - 2 *  min (p n x).toReal (f x).toReal ∂volume := by
-      have pn_integrable := integrable_density (ν n) (p_measurable n) (exists_densities_ν n)
-      have f_integrable := integrable_density μ f_measurable exists_density_μ
-      have : (∫ (x : ℝ), (p n x).toReal) + ∫ (x : ℝ), (f x).toReal = ∫ (x : ℝ), (p n x).toReal + (f x).toReal := by
-        have := integral_add pn_integrable f_integrable
-        exact Eq.symm this
-      rw [this]
-      have : (∫ (x : ℝ), (p n x).toReal + (f x).toReal) - 2 * ∫ (x : ℝ), min (p n x).toReal (f x).toReal
-        = (∫ (x : ℝ), (p n x).toReal + (f x).toReal) + (- 2) * ∫ (x : ℝ), min (p n x).toReal (f x).toReal := by grind
-      rw [this]
-      rw [← integral_const_mul (-2:ℝ) (fun x:ℝ ↦ min (p n x).toReal (f x).toReal)]
-      have pn_plus_f_integrable : Integrable (fun x:ℝ ↦ (p n x).toReal + (f x).toReal) :=
-        (integrable_add_iff_integrable_left' f_integrable).mpr pn_integrable
-      have f_integrable' : Integrable (fun x:ℝ ↦ -2*min (p n x).toReal (f x).toReal) :=
-        Integrable.const_mul (Integrable.inf pn_integrable f_integrable) (-2)
-      have := integral_add pn_plus_f_integrable f_integrable'
-      rw [← this]
-      grind
-    rw [this]
-    -- At this point we are ready to reduce the claim to an application of the abs_value_min lemma.
-    apply integral_congr_ae
-    apply Filter.Eventually.of_forall
-    intro x
-    simp
-    exact abs_value_min (p n x).toReal (f x).toReal
-  rw [this]
+  -- At first we rewrite the difference using abs_min_formula_consequence, so that we can apply dominated convergence to the RHS.
+  rw [abs_min_formula_consequence p_measurable p_cts f_measurable f_cts exists_densities_ν exists_density_μ]
   -- Now with the correctly formulated limit, we can use dominated convergence.
   have limit_by_dominated : Tendsto (fun n ↦ 2 * ∫ x:ℝ, ((p n x).toReal) ⊓ ((f x).toReal) ∂volume) atTop (𝓝 (2:ℝ)) := by
     have : (2:ℝ)*1 =2 := (MulOneClass.mul_one 2)
@@ -580,8 +594,7 @@ lemma convergence_densities_in_L1_implies_weak_convergence {g:ℝ → ℝ} (hL1_
   simp at this
   exact this
 
--- We will now begin to work with the convolution of μ with a Gaussian measure.
-
+-- We will now begin to work with the convolution of μ with a Gaussian measure. This is a key formula in the proof that the convolution has a density.
 private lemma convolution_identity {μ : Measure ℝ} [IsProbabilityMeasure μ] {A : Set ℝ} (δ:ℝ≥0) (hA : MeasurableSet A) :
 ∀ᵐ x ∂μ, ∫⁻ (y:ℝ) , (gaussianPDF 0 δ) y *  A.indicator 1 (x + y) ∂volume = ∫⁻ (y:ℝ) in A , (gaussianPDF 0 δ) (y-x) ∂volume := by
   apply Filter.Eventually.of_forall
@@ -605,13 +618,15 @@ private lemma convolution_identity {μ : Measure ℝ} [IsProbabilityMeasure μ] 
   simp
   measurability
 
--- TODO: add comments
+-- Now we prove that the convolution of the measure μ does have a density wrt the Lebesgue measure, and we derive the exact formula.
 lemma gaussian_conv_has_density {δ:ℝ≥0} (hδ : δ ≠ 0) : μ ∗ (gaussianReal 0 δ) = withDensity volume (fun x ↦ ∫⁻ y, gaussianPDF 0 δ (x - y) ∂μ) := by
   ext A
   have indi_measurable : Measurable (A.indicator (1:ℝ→ℝ≥0∞)) := by measurability
   have set_measurable : MeasurableSet A := by measurability
   have gaussianPDF_measurable : Measurable (gaussianPDF 0 δ) := by exact measurable_gaussianPDF 0 δ
+  -- We rewrite both sides as double integrals
   rw [withDensity_apply, ← lintegral_indicator_one, lintegral_conv, gaussianReal_of_var_ne_zero 0 hδ]
+  -- We unfold the integrals so that both sides are double integrals with same measures. We also write them in the form ∫_ℝ ∫_A ()...) .
   have : ∫⁻ (x : ℝ), ∫⁻ (y : ℝ), A.indicator 1 (x + y) ∂volume.withDensity (gaussianPDF 0 δ) ∂μ
     = ∫⁻ (x:ℝ) , ∫⁻ (y:ℝ) , (gaussianPDF 0 δ) y * A.indicator 1 (x + y)  ∂volume ∂μ := by
     have : ∀ᵐ x ∂μ, ∫⁻ (y:ℝ) , A.indicator 1 (x + y) ∂ volume.withDensity (gaussianPDF 0 δ)
@@ -624,20 +639,22 @@ lemma gaussian_conv_has_density {δ:ℝ≥0} (hδ : δ ≠ 0) : μ ∗ (gaussian
       exact this
     rw [lintegral_congr_ae this]
   rw [this]
+  -- After an application of the above lemma convolution_identity ...
   have : MeasurableSet A := by measurability
   rw [lintegral_congr_ae (convolution_identity (μ := μ) δ this)]
   have : AEMeasurable (Function.uncurry (fun x ↦ (fun y ↦ gaussianPDF 0 δ (y - x)))) (μ.prod (volume.restrict A)) := by measurability
+  -- ... the proof is reduced into exchaging the order of integration.
   rw [lintegral_lintegral_swap this]
   -- some side goals
   exact indi_measurable
   exact set_measurable
   exact set_measurable
 
--- TODO: add comments
+-- This lemma is essentially proven as a consequence of dominated convergence theorem.
 lemma gaussian_conv_density_cts {δ:ℝ≥0} (hδ : δ ≠0) : Continuous (fun x ↦ ∫⁻ y, gaussianPDF 0 δ (x - y) ∂μ) := by
   apply continuous_iff_continuousAt.mpr
   intro x
-  apply tendsto_lintegral_filter_of_dominated_convergence
+  apply tendsto_lintegral_filter_of_dominated_convergence (bound := fun x:ℝ ↦ ENNReal.ofReal (√(2*π*δ))⁻¹)
   apply Filter.Eventually.of_forall
   intro x
   measurability
@@ -654,7 +671,7 @@ lemma gaussian_conv_density_cts {δ:ℝ≥0} (hδ : δ ≠0) : Continuous (fun x
     field_simp ; simp
     exact sq_nonneg (x - a)
   exact this
-  rw [show ∫⁻ (a : ℝ), some (√(2 * π * ↑δ))⁻¹.toNNReal ∂μ = (√(2 * π * ↑δ))⁻¹.toNNReal by simp]
+  rw [show ∫⁻ (a : ℝ), ENNReal.ofReal (√(2 * π * ↑δ))⁻¹ ∂μ  = ENNReal.ofReal (√(2 * π * ↑δ))⁻¹ by simp]
   exact coe_ne_top
   apply Filter.Eventually.of_forall
   intro a
