@@ -840,6 +840,8 @@ lemma lipschitz_bdd_unif_approx {L : ℝ≥0} {f : ℝ → ℝ} {δ:ℝ≥0} (f_
   rw [variance_eq_sub abs_mem_L2] at var_ineq
   have ineq := add_le_add_left var_ineq ((∫ (x : ℝ), |x| ∂gaussianReal 0 δ) ^ 2)
   simp at ineq
+  /- Now compute the moment with the variance_formula below, and rewrite this to ineq, and take
+     square roots, multiply by L: you have the claim. -/
   have variance_formula : ∫ (x : ℝ), x ^ 2 ∂gaussianReal 0 δ = δ := by
     have : MemLp id 2 (gaussianReal 0 δ) := by exact IsGaussian.memLp_two_id
     have variance_formula_2 := variance_eq_sub this
