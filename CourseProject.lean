@@ -1,2 +1,3 @@
 import CourseProject.CLT
-import CourseProject.CharFun
+import CourseProject.CharFun.Basic
+import CourseProject.CharFun.CharFunConvergence
