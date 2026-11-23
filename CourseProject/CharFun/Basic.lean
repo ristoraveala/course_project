@@ -223,8 +223,7 @@ lemma snd_taylor_charFun (snd_moment : Integrable (fun x:ℝ ↦ |x|^2) μ) :
     ext θ x
     simp [sum_Icc_succ_top,c_def, R_def]
     grind
-  have tf := (taylor_of_param_integral (f := f) (R := R) μ 2 c hf R_bdd R_cts R_zero) snd_moment
-  obtain ⟨ε,pε⟩ := tf
+  obtain ⟨ε,pε⟩ := (taylor_of_param_integral (f := f) (R := R) μ 2 c hf R_bdd R_cts R_zero) snd_moment
   use ε
   constructor
   · exact pε.right.left
