@@ -322,7 +322,7 @@ lemma charFun_convergence_with_densities (charFuns_converge : ∀ t:ℝ, Tendsto
   exact this
 
 -- At more than one point in the coming, the following straightforward lemma, which allows to convert two meanings of "boundedness", is useful.
-lemma bounded_implies_bounded {g : ℝ → ℝ} (g_bdd : ∃C ,  ∀ (x y : ℝ), dist (g x) (g y) ≤ C) : ∃ M, ∀ x:ℝ, |g x| ≤ M := by
+private lemma bounded_implies_bounded {g : ℝ → ℝ} (g_bdd : ∃C ,  ∀ (x y : ℝ), dist (g x) (g y) ≤ C) : ∃ M, ∀ x:ℝ, |g x| ≤ M := by
   obtain ⟨C,pC⟩ := g_bdd
   let M := C + |g 0|
   use M
@@ -453,7 +453,7 @@ lemma gaussian_density_bd {δ:ℝ≥0} (hδ : δ ≠ 0) : (fun x ↦ gaussianPDF
   exact sq_nonneg x
 
 -- This lemma is essentially proven as a consequence of dominated convergence theorem.
-lemma gaussian_conv_density_cts {δ:ℝ≥0} (hδ : δ ≠0) : Continuous (fun x ↦ ∫⁻ y, gaussianPDF 0 δ (x - y) ∂μ) := by
+lemma gaussian_conv_density_cts {δ:ℝ≥0} (hδ : δ ≠ 0) : Continuous (fun x ↦ ∫⁻ y, gaussianPDF 0 δ (x - y) ∂μ) := by
   apply continuous_iff_continuousAt.mpr
   intro x
   apply tendsto_lintegral_filter_of_dominated_convergence (bound := fun x:ℝ ↦ ENNReal.ofReal (√(2*π*δ))⁻¹)
