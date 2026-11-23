@@ -144,9 +144,46 @@ lemma exp_it_taylor : (fun θ:ℝ ↦ (fun x:ℝ ↦ cexp (inner ℝ θ x * I) )
   = fun θ:ℝ ↦ (fun x:ℝ ↦ 1 + I * x * θ - (1/2) * θ ^ 2 * x ^2
           - θ ^2 * ∫ u in 0..x, (∫ v in 0..u,  cexp (I*θ*v) - 1 ∂volume) ∂volume) := by
     ext θ x
-    #check integral_exp_mul_complex
-    #check taylor_integral_remainder
-    sorry
+    simp
+    by_cases hθ : θ = 0
+    · simp [hθ]
+    · push Not at hθ
+      /- We prove the formula in a way which is perhaps not so mathematically elegant: we have the lemma exp_integral, and
+         the lemma id_integral, and then we remove all of the integrals in the equality using those. After that the proof is
+         a matter of algebra which we handle automatically. -/
+      have integrability_1 : IntervalIntegrable (fun u:ℝ ↦ (-I / θ) * (cexp (I * θ * u) - 1)) volume 0 x := by
+        have : Continuous (fun u:ℝ ↦ (-I / θ) * (cexp (I * θ * u) - 1)) := by fun_prop
+        apply Continuous.intervalIntegrable this
+      have integrability_2 : IntervalIntegrable (fun u:ℝ ↦ (u:ℂ)) volume 0 x := by
+        apply Continuous.intervalIntegrable Complex.continuous_ofReal
+      have exp_integral : (fun u:ℝ ↦ ∫ v in 0..u,  cexp (I*θ*v) - 1 ∂volume) = (fun u:ℝ ↦ (-I/θ) * (cexp (I*θ*u) - 1) - u) := by
+        ext u
+        have h1 : IntervalIntegrable (fun v ↦ cexp (I*θ*v)) volume 0 u := by
+          have : Continuous (fun v:ℝ ↦ cexp (I*θ*v)) := by fun_prop
+          apply Continuous.intervalIntegrable this
+        have h2 : IntervalIntegrable  (fun v:ℝ ↦ (1:ℂ)) volume 0 u := by
+          apply Continuous.intervalIntegrable continuous_const
+        rw [intervalIntegral.integral_sub h1 h2]
+        have : I*θ ≠ 0 := by simp [I_ne_zero, hθ]
+        rw [integral_exp_mul_complex (a := 0) (b := u) this,
+            show ∫ (v : ℝ) in 0..u, (1:ℂ) = u by simp]
+        ring_nf
+        simp
+        field_simp [inv_I, I_sq, hθ]
+        ring
+      have id_integral : ∫ (u : ℝ) in 0..x, (u:ℂ) = (1/2) * (x:ℂ)^2 := by
+        rw [intervalIntegral.integral_ofReal,
+            show ∫ u in 0..x, u = x ^2/2 by simp [integral_id]]
+        field_simp
+        simp
+      -- intervalIntegral.integral_const_mul (a := 0) (b := u) (μ := volume) (-I/θ) (fun u:ℝ ↦ cexp (I * θ * u) - 1)
+      rw [exp_integral,
+          intervalIntegral.integral_sub integrability_1 integrability_2, intervalIntegral.integral_const_mul,
+          show ∫ (u : ℝ) in 0..x, cexp (I * ↑θ * u) - 1 = (-I/θ) * (cexp (I*θ*x) - 1) - x by exact congr_fun exp_integral x,
+          id_integral]
+      ring_nf
+      field_simp [hθ, I_sq]
+      simp
 
 -- Now we obtain the Taylor expansion of a characteristic function for a measure with two moments.
 lemma snd_taylor_charFun (snd_moment : Integrable (fun x:ℝ ↦ |x|^2) μ) :
