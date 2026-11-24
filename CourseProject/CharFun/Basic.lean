@@ -387,9 +387,90 @@ lemma iid_sum_taylor_product {Ω : Type*} [MeasureSpace Ω] [IsProbabilityMeasur
 -- This lemma is what we need in the proof of CLT
 lemma iid_sum_to_cexp {Ω : Type*} [MeasureSpace Ω] [IsProbabilityMeasure (ℙ : Measure Ω)] {Y : ℕ → Ω → ℝ}
 (measurable : ∀ (j:ℕ), Measurable (Y j)) (indep : iIndepFun Y ℙ) (ident_distrib : ∀ i j : ℕ,  IdentDistrib (Y i) (Y j) ℙ ℙ)
-(snd_moment : Integrable (fun x:ℝ ↦ |x|^2) (map (Y 1) ℙ)) :
-∀ t:ℝ , Tendsto (fun n:ℕ ↦ (charFun (map (fun ω ↦ (1/√(n*variance (Y 1) ℙ)) * ∑ k : Icc 1 n , (Y k ω - ℙ[Y 1])) ℙ ) t) ) atTop (𝓝 (cexp (-t/2))) := by
+(snd_moment : Integrable (fun x:ℝ ↦ |x|^2) (map (Y 1) ℙ)) (variance_nonzero : ∫(x:ℝ) , |x|^2 ∂(Measure.map (fun ω ↦ Y 1 ω - ℙ[Y 1]) ℙ) ≠ 0):
+∀ t:ℝ , Tendsto (fun n:ℕ ↦ (charFun (map (fun ω ↦ (1/√(n*∫(x:ℝ), |x|^2 ∂(map (fun ω ↦ Y 1 ω - ℙ[Y 1]) ℙ))) * ∑ k : Icc 1 n , (Y k ω - ℙ[Y 1])) ℙ ) t)) atTop (𝓝 (cexp (-t^2/2))) := by
   intro t
+  set v := ∫(x:ℝ) , |x|^2 ∂(map (fun ω ↦ Y 1 ω - ∫ ω, Y 1 ω ∂ℙ) ℙ) with hv
+  have hv' : v = ∫(x:ℝ) , x^2 ∂(map (fun ω ↦ Y 1 ω - ∫ ω, Y 1 ω ∂ℙ) ℙ) := by
+    rw [hv]
+    apply integral_congr_ae
+    apply Filter.Eventually.of_forall
+    grind
+  have v_ne_zero : v ≠ 0 := by
+    rw [hv]
+    exact variance_nonzero
+  have v_ne_zero : (v:ℂ) ≠ (0:ℂ) := ofReal_ne_zero.mpr variance_nonzero
+  have v_ge_zero : v ≥ 0 := by
+    rw [hv]
+    apply integral_nonneg
+    intro x
+    simp
+    exact sq_nonneg x
   obtain ⟨ε,pε⟩ := iid_sum_taylor_product measurable indep ident_distrib snd_moment
-
-  sorry
+  have approx_formula : (fun n:ℕ ↦ (charFun (map (fun ω ↦ (1/√(n*v)) * ∑ k : Icc 1 n , (Y k ω - ℙ[Y 1])) ℙ ) t))
+        = (fun n:ℕ ↦ (1 - (1/n) * (1/2) * t^2 + t^2 * (1/v) * (1/n) * ε (t * (1/√v) * (1/√n)))^n) := by
+    ext n
+    have formula := (pε n (1/√(n*v))).right.right
+    rw [formula]
+    apply congrArg (fun x ↦ x^n)
+    rw [← hv']
+    simp
+    -- For some reason we need to work a bit to prove that both sides are equal. It seems that Lean can't handle the following identity.
+    have : (((√v:ℂ))⁻¹ * (√(n:ℝ):ℂ)⁻¹) ^ 2 = (v⁻¹:ℂ) * (n:ℂ)⁻¹ := by
+      field_simp
+      have : (√v:ℂ) ^ 2 = (v:ℂ) := by
+        rw [show (√v:ℂ) ^ 2 = ((√v:ℝ)^2:ℝ) by simp, Real.sq_sqrt v_ge_zero]
+      rw [this]
+      have : (√(n:ℝ):ℂ)^ 2 = (n:ℂ) := by
+        have : (√(n:ℝ):ℂ) ^ 2 = ((√n:ℝ)^2:ℝ) := Eq.symm (Complex.ofReal_pow (√↑n) 2)
+        rw [this]
+        have : (n:ℝ) ≥ 0 := Nat.cast_nonneg' n
+        simp [Real.sq_sqrt this]
+      rw [this]
+      field_simp
+    rw [this]
+    grind
+  rw [approx_formula]
+  set g : ℕ → ℂ := fun n ↦ (- 1 / n * (1 / 2) * t ^ 2 + t ^ 2 * (1 / v) * (1 / n) * ε (t * (1 / √v) * (1 / √n))) with hg
+  have : (fun n:ℕ ↦ (1 - 1 / n * (1 / 2) * t ^ 2 + t ^ 2 * (1 / ↑v) * (1 / ↑n) * ε (t * (1 / √v) * (1 / √n))) ^ n) = (fun n:ℕ ↦ (1 + g n)^n) := by
+    ext n
+    apply congrArg (fun x ↦ x^n)
+    grind
+  rw [this]
+  have : Tendsto (fun (n:ℕ) ↦ n * g n) atTop (𝓝 (-t^2/2)) := by
+    apply (tendsto_add_atTop_iff_nat 1).mp
+    have : (fun (n:ℕ) ↦ ((n+1):ℕ) * g (n+1)) = (fun n:ℕ ↦ - t ^ 2/2 + (t:ℂ) ^ 2 * (v:ℂ)⁻¹ * ε (t * (√v)⁻¹ * (√(n+1))⁻¹)) := by
+      ext n
+      rw [hg]
+      simp
+      field_simp
+    rw [this]
+    have : Tendsto (fun n:ℕ ↦ (t:ℂ) ^ 2 * (v:ℂ)⁻¹ * ε (t * √v⁻¹ * (1 / √(n+1)))) atTop (𝓝 0) := by
+      rw [show (fun n:ℕ ↦ (t:ℂ) ^ 2 * (v:ℂ)⁻¹ * ε (t * √v⁻¹ * (1 / √(n+1)))) = (fun n:ℕ ↦ ((t:ℂ) ^ 2 * (v:ℂ)⁻¹) • ε (t * √v⁻¹ * (1 / √(n+1)))) by simp,
+          show (0:ℂ) = ((t:ℂ) ^ 2 * (v:ℂ)⁻¹) • 0 by simp]
+      apply Tendsto.const_smul
+      have : (fun n:ℕ ↦ ε (t * √v⁻¹ * (1 / √(n + 1)))) = ε ∘ (fun n:ℕ ↦ t * √v⁻¹ * (1 / √(n + 1))) := by
+        simp
+        grind
+      rw [this]
+      have : Tendsto ε (𝓝 0) (𝓝 0) := by
+        have : Continuous ε := (pε 0 0).left
+        apply Continuous.tendsto' this 0 0
+        exact (pε 0 0).right.left
+      apply Tendsto.comp this
+      rw [show (fun n:ℕ ↦ t * √v⁻¹ * (1 / √(↑n + 1))) = (fun n:ℕ ↦ (t * √v⁻¹) • (1 / √(↑n + 1))) by simp,
+          show (0:ℝ) = (t * √v⁻¹) • 0 by simp]
+      apply Tendsto.const_smul
+      rw [show (fun n:ℕ ↦ 1 / √(n + 1)) = (fun r:ℝ ↦ r⁻¹) ∘ (fun n:ℕ ↦ √(n + 1)) by ext n ; simp]
+      have : Tendsto (fun n:ℕ ↦ √(n + 1)) atTop atTop := by
+        rw [show (fun n:ℕ ↦ √(n + 1)) = Real.sqrt ∘ (fun n:ℕ ↦ (n+1)) by ext n ; simp]
+        apply Tendsto.comp Real.tendsto_sqrt_atTop
+        apply Tendsto.atTop_add_nonneg
+        exact tendsto_natCast_atTop_atTop
+        simp
+      apply Tendsto.comp _ this
+      exact tendsto_inv_atTop_zero
+    have := Tendsto.const_add (-(t:ℂ)^2/2) this
+    simp at this
+    exact this
+  exact Complex.tendsto_one_add_pow_exp_of_tendsto this

@@ -13,11 +13,12 @@ noncomputable section CLT
 
 variable {X : ℕ → Ω → ℝ} (meas : ∀ n, Measurable (X n))
   (independence : iIndepFun X ℙ) (ident_distrib : ∀ i j : ℕ, IdentDistrib (X i) (X j) ℙ ℙ)
-  (snd_moments : ∀ n, MemLp (X n) 2 ℙ) (snd_moment_nonzero : ∀ n:ℕ, ∫ ω , |X n ω|^2 ∂ℙ ≠ 0)
+  (snd_moments : ∀ n, Integrable (fun x:ℝ ↦ |x|^2) (Measure.map (X n) ℙ))
+  (variance_nonzero : ∫(x:ℝ) , |x|^2 ∂(Measure.map (fun ω ↦ X 1 ω - ℙ[X 1]) ℙ) ≠ 0)
 
 include meas independence ident_distrib snd_moments snd_moment_nonzero in
 theorem CLT : TendstoInDistribution
-  (fun (n:ℕ) ↦ fun ω ↦ (1/√(n * variance (X 1) ℙ)) * (∑ i : Finset.Icc 1 n, (X i ω - ℙ[X 1])))
+  (fun (n:ℕ) ↦ fun ω ↦ (1/√(n * ∫(x:ℝ) , |x|^2 ∂(Measure.map (fun ω ↦ X 1 ω - ℙ[X 1]) ℙ))) * (∑ i : Finset.Icc 1 n, (X i ω - ℙ[X 1])))
     atTop id (fun n ↦ ℙ) (gaussianReal 0 1) := by
   set v := variance (X 1) ℙ
   have v_ne_zero : v ≠ 0 := by sorry -- use snd_moment_nonzero
