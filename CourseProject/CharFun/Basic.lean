@@ -255,3 +255,130 @@ lemma indep_sum_charFun {Ω : Type*} [MeasureSpace Ω] [IsProbabilityMeasure (�
   have measurable' : ∀ j : Icc 1 n,  AEMeasurable (Y j) := by intro j ; exact measurable j
   have indep' : iIndepFun (fun i:Icc 1 n ↦ Y i) ℙ := iIndepFun_iff_finset.mp indep (Icc 1 n)
   exact iIndepFun.charFun_map_fun_sum_eq_prod measurable' indep'
+
+lemma iid_sum_charFun {Ω : Type*} [MeasureSpace Ω] [IsProbabilityMeasure (ℙ : Measure Ω)] {Y : ℕ → Ω → ℝ}
+(measurable : ∀ (j:ℕ), AEMeasurable (Y j)) (indep : iIndepFun Y ℙ) (indep_distrib : ∀ i j : ℕ,  IdentDistrib (Y i) (Y j) ℙ ℙ) (n:ℕ) :
+charFun (map (fun ω ↦ ∑ k : Icc 1 n, Y k ω) ℙ) = (charFun (map (Y 1) ℙ))^n := by
+  rw [indep_sum_charFun measurable indep n]
+  have : (fun k : Finset.Icc 1 n ↦ charFun (map (Y k) ℙ)) = (fun k : Finset.Icc 1 n ↦ charFun (map (Y 1) ℙ)) := by
+    ext k
+    rw [show map (Y k) ℙ = map (Y 1) ℙ by exact (indep_distrib k 1).map_eq]
+  rw [this]
+  simp
+
+private lemma sub_mean_integrable {Ω : Type*} [MeasureSpace Ω] [IsProbabilityMeasure (ℙ : Measure Ω)] {Y : Ω → ℝ}
+(measurable : Measurable Y) (snd_moment : Integrable (fun x:ℝ ↦ |x|^2) (map Y ℙ)) :
+Integrable (fun x:ℝ ↦ |x|^2) (map (fun ω ↦ Y ω - ℙ[Y]) ℙ) := by
+    have : (fun ω ↦ Y ω - ℙ[Y]) = (fun x:ℝ ↦ x - ℙ[Y]) ∘ Y := by
+      ext ω
+      simp
+    rw [this]
+    set e := (fun x:ℝ ↦ x-ℙ[Y]) with he
+    have e_meas : AEMeasurable e (map Y ℙ) := by measurability
+    have fun_meas : AEStronglyMeasurable (fun x:ℝ ↦ |x|^2) (map e (map Y ℙ)) := by measurability
+    have : (map ((fun x ↦ x - ∫ (ω : Ω), Y ω) ∘ Y) ℙ) = (map e (map Y ℙ)) := by
+      refine Eq.symm (Measure.map_map ?_ ?_)
+      measurability
+      exact measurable
+    rw [this]
+    apply (integrable_map_measure fun_meas e_meas).mpr
+    rw [show (fun x ↦ |x| ^ 2) ∘ e = (fun x ↦ |x - ℙ[Y]|^2) by ext x; simp [he]]
+    have ineq : ∀ᵐ (x : ℝ) ∂(map Y ℙ), ‖|x - ℙ[Y]| ^ 2‖ ≤ ‖2*|x|^2 + 2*(ℙ[Y])^2‖ := by
+      apply Filter.Eventually.of_forall
+      intro x
+      simp
+      have : 2 * x ^ 2 + 2 * (∫ (x : Ω), Y x) ^ 2 ≤ |2 * x ^ 2 + 2 * (∫ (x : Ω), Y x) ^ 2| := by apply le_abs_self
+      apply le_trans _ this
+      have := add_sq_le (a := x) (b := -ℙ[Y])
+      simp at this
+      rw [show x + -∫ (x : Ω), Y x = x - ℙ[Y] by grind,
+          show 2 * (x ^ 2 + (∫ (x : Ω), Y x) ^ 2) = 2 * x^2 + 2*(ℙ[Y])^2 by grind] at this
+      exact this
+    have add_sum_integrable : Integrable (fun x:ℝ ↦ 2*|x|^2 + 2*(ℙ[Y])^2) (map Y ℙ) := by
+      apply Integrable.add
+      apply Integrable.const_mul
+      exact snd_moment
+      exact integrable_const (2 * (∫ (x : Ω), Y x) ^ 2)
+    have : AEStronglyMeasurable (fun x:ℝ ↦ |x - ℙ[Y]|^2) (map Y ℙ) := by measurability
+    exact Integrable.mono add_sum_integrable this ineq
+
+private lemma sub_mean_integral_zero {Ω : Type*} [MeasureSpace Ω] [IsProbabilityMeasure (ℙ : Measure Ω)] {Y : Ω → ℝ}
+(measurable : Measurable Y) (snd_moment : Integrable (fun x:ℝ ↦ |x|^2) (map Y ℙ)) :
+∫ x:ℝ, x ∂Measure.map (fun ω ↦ Y ω - ℙ[Y]) ℙ = 0 := by
+  have : ∫ x:ℝ, x ∂Measure.map (fun ω ↦ Y ω - ℙ[Y]) ℙ = ∫ ω:Ω, Y ω - ℙ[Y] ∂ℙ := by
+    exact integral_map (by measurability) (by measurability)
+  rw [this]
+  have Y_int : Integrable Y ℙ := by
+    have e_meas : AEMeasurable Y ℙ := Measurable.aemeasurable measurable
+    have fun_meas : AEStronglyMeasurable id (map Y ℙ) := aestronglyMeasurable_id
+    rw [show Y = id ∘ Y by simp]
+    apply (integrable_map_measure fun_meas e_meas).mp
+    have ineq : ∀ᵐ (x : ℝ) ∂(map Y ℙ), ‖x‖ ≤ ‖1+|x|^2‖ := by
+      apply Filter.Eventually.of_forall
+      intro x
+      simp
+      apply le_trans _ (le_abs_self (1 + x ^ 2))
+      by_cases hx : |x| ≤ 1
+      · apply le_trans hx
+        simp
+        exact sq_nonneg x
+      · push Not at hx
+        have hx' : 1 ≤ |x| := le_of_lt hx
+        have : |x| ≤ x^2 := by
+          have := mul_le_mul_of_nonneg_right hx' (abs_nonneg x)
+          simp [Eq.symm (pow_two x)] at this
+          exact this
+        apply le_trans this
+        simp
+    have dom_integrable : Integrable (fun x:ℝ ↦ 1+|x|^2) (map Y ℙ) := by
+      apply Integrable.add
+      exact integrable_const 1
+      exact snd_moment
+    exact Integrable.mono dom_integrable aestronglyMeasurable_id ineq
+  have const_int : Integrable (fun ω:Ω ↦ ℙ[Y]) ℙ := integrable_const (ℙ[Y])
+  rw [integral_sub Y_int const_int]
+  simp
+
+lemma iid_sum_taylor_product {Ω : Type*} [MeasureSpace Ω] [IsProbabilityMeasure (ℙ : Measure Ω)] {Y : ℕ → Ω → ℝ}
+(measurable : ∀ (j:ℕ), Measurable (Y j)) (indep : iIndepFun Y ℙ) (ident_distrib : ∀ i j : ℕ,  IdentDistrib (Y i) (Y j) ℙ ℙ)
+(snd_moment : Integrable (fun x:ℝ ↦ |x|^2) (map (Y 1) ℙ)) (n:ℕ) (c:ℝ) :
+∃ ε : ℝ → ℂ, Continuous ε ∧ ε 0 = 0
+∧ charFun (map (fun ω ↦ c * ∑ k : Icc 1 n , (Y k ω - ℙ[Y 1])) ℙ ) = (fun t:ℝ ↦ ((1 - (1/2) * c^2 * (∫ x:ℝ, x^2 ∂(map (fun ω ↦ Y 1 ω - ℙ[Y 1]) ℙ)) * t^2 + t^2 * c^2 * ε (t * c)) ^ n :ℂ)) := by
+  have : Integrable (fun x:ℝ ↦ |x|^2) (map (fun ω ↦ Y 1 ω - ℙ[Y 1]) ℙ) := sub_mean_integrable (measurable 1) snd_moment
+  obtain ⟨ε,pε⟩ := snd_taylor_charFun (map (fun ω ↦ Y 1 ω - ℙ[Y 1]) ℙ) this
+  use ε
+  constructor
+  · exact pε.left
+  · constructor
+    · exact pε.right.left
+    · ext t
+      have : charFun (map (fun ω ↦ c * ∑ k : Icc 1 n , (Y k ω - ℙ[Y 1])) ℙ) t = charFun (map (fun ω ↦ ∑ k : Icc 1 n , (Y k ω - ℙ[Y 1])) ℙ) (c*t) := by
+        have scalar_multiple_formula := congr_fun (charFun_transformation (map (fun ω ↦ ∑ k : Icc 1 n , (Y k ω - ℙ[Y 1])) ℙ) c 0) t
+        have : map (fun x ↦ c * x + 0) (map (fun ω ↦ ∑ k:Icc 1 n, (Y (↑k) ω - ∫ (x : Ω), Y 1 x)) ℙ) = map (fun ω ↦ c * ∑ k : Icc 1 n , (Y k ω - ℙ[Y 1])) ℙ := by
+          have : map (fun x ↦ c * x + 0) (map (fun ω ↦ ∑ k:Icc 1 n, (Y (↑k) ω - ∫ (x : Ω), Y 1 x)) ℙ) = map ((fun x ↦ c*x+0) ∘ (fun ω ↦ ∑ k:Icc 1 n, (Y (↑k) ω - ∫ (x : Ω), Y 1 x))) ℙ := by
+            apply Measure.map_map (by measurability) (by measurability)
+          rw [this]
+          apply Measure.map_congr
+          apply Filter.Eventually.of_forall
+          intro ω
+          simp
+        rw [this] at scalar_multiple_formula
+        simp ; simp at scalar_multiple_formula
+        exact scalar_multiple_formula
+      rw [this]
+      have indep_shifted : iIndepFun (fun k:ℕ ↦ (fun ω ↦ Y k ω - ℙ[Y 1])) := by
+        have indep_shift_goal := iIndepFun.comp indep (fun k ↦ (fun x:ℝ ↦ x - ℙ[Y 1])) (by measurability)
+        rw [show (fun k:ℕ ↦ (fun x ↦ x - ∫ (ω : Ω), Y 1 ω) ∘ Y k) = (fun k:ℕ ↦ (fun ω ↦ Y k ω - ℙ[Y 1])) by ext k; simp] at indep_shift_goal
+        exact indep_shift_goal
+      have ident_distrib_shift : ∀ i j : ℕ,  IdentDistrib (fun ω ↦ Y i ω - ℙ[Y 1]) (fun ω ↦ Y j ω - ℙ[Y 1]) ℙ ℙ := by
+        intro i j
+        exact IdentDistrib.sub_const (ident_distrib i j) (∫ (ω : Ω), Y 1 ω)
+      have : ∀ (j : ℕ), AEMeasurable (fun ω ↦ Y j ω - ℙ[Y 1]) ℙ := by measurability
+      rw [congr_fun (iid_sum_charFun this indep_shifted ident_distrib_shift n) (c*t),
+          show (charFun (map (fun ω ↦ Y 1 ω - ∫ (x : Ω), Y 1 x) ℙ) ^ n) (c * t) = (charFun (map (fun ω ↦ Y 1 ω - ℙ[Y 1]) ℙ) (c*t) ) ^ n by simp,
+          congr_fun pε.right.right (c*t)]
+      apply congrArg (fun x ↦ x^n)
+      set v := ∫ (x : ℝ), x ^ 2 ∂Measure.map (fun ω ↦ Y 1 ω - ℙ[Y 1]) ℙ with hv
+      have : ∫ x:ℝ, x ∂Measure.map (fun ω ↦ Y 1 ω - ℙ[Y 1]) ℙ = 0 := sub_mean_integral_zero (measurable 1) snd_moment
+      simp [this]
+      field_simp
