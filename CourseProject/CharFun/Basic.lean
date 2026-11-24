@@ -384,6 +384,45 @@ lemma iid_sum_taylor_product {Ω : Type*} [MeasureSpace Ω] [IsProbabilityMeasur
       simp [this]
       field_simp
 
+private lemma limit_claim (t:ℝ) (v:ℝ) (ε:ℝ → ℂ) (ε_cont : Continuous ε) (ε_zero : ε 0 = 0) :
+  Tendsto (fun n:ℕ ↦ (t:ℂ) ^ 2 * (v:ℂ)⁻¹ * ε (t * √v⁻¹ * (1 / √(n+1)))) atTop (𝓝 0) := by
+  rw [show (fun n:ℕ ↦ (t:ℂ) ^ 2 * (v:ℂ)⁻¹ * ε (t * √v⁻¹ * (1 / √(n+1)))) = (fun n:ℕ ↦ ((t:ℂ) ^ 2 * (v:ℂ)⁻¹) • ε (t * √v⁻¹ * (1 / √(n+1)))) by simp,
+      show (0:ℂ) = ((t:ℂ) ^ 2 * (v:ℂ)⁻¹) • 0 by simp]
+  apply Tendsto.const_smul
+  have : (fun n:ℕ ↦ ε (t * √v⁻¹ * (1 / √(n + 1)))) = ε ∘ (fun n:ℕ ↦ t * √v⁻¹ * (1 / √(n + 1))) := by
+    simp
+    grind
+  rw [this]
+  have : Tendsto ε (𝓝 0) (𝓝 0) := by
+    apply Continuous.tendsto' ε_cont 0 0
+    exact ε_zero
+  apply Tendsto.comp this
+  rw [show (fun n:ℕ ↦ t * √v⁻¹ * (1 / √(↑n + 1))) = (fun n:ℕ ↦ (t * √v⁻¹) • (1 / √(↑n + 1))) by simp,
+      show (0:ℝ) = (t * √v⁻¹) • 0 by simp]
+  apply Tendsto.const_smul
+  rw [show (fun n:ℕ ↦ 1 / √(n + 1)) = (fun r:ℝ ↦ r⁻¹) ∘ (fun n:ℕ ↦ √(n + 1)) by ext n ; simp]
+  have : Tendsto (fun n:ℕ ↦ √(n + 1)) atTop atTop := by
+    rw [show (fun n:ℕ ↦ √(n + 1)) = Real.sqrt ∘ (fun n:ℕ ↦ (n+1)) by ext n ; simp]
+    apply Tendsto.comp Real.tendsto_sqrt_atTop
+    apply Tendsto.atTop_add_nonneg
+    exact tendsto_natCast_atTop_atTop
+    simp
+  apply Tendsto.comp _ this
+  exact tendsto_inv_atTop_zero
+
+-- For some reason this needed a bit more work
+private lemma coercion_formula (v:ℝ) (n:ℕ) (v_ge_zero : v ≥ 0) : (((√v:ℂ))⁻¹ * (√(n:ℝ):ℂ)⁻¹) ^ 2 = (v⁻¹:ℂ) * (n:ℂ)⁻¹ := by
+  field_simp
+  have : (√v:ℂ) ^ 2 = (v:ℂ) := by
+    rw [show (√v:ℂ) ^ 2 = ((√v:ℝ)^2:ℝ) by simp, Real.sq_sqrt v_ge_zero]
+  rw [this]
+  have : (√(n:ℝ):ℂ)^ 2 = (n:ℂ) := by
+    have : (√(n:ℝ):ℂ) ^ 2 = ((√n:ℝ)^2:ℝ) := Eq.symm (Complex.ofReal_pow (√↑n) 2)
+    rw [this]
+    have : (n:ℝ) ≥ 0 := Nat.cast_nonneg' n
+    simp [Real.sq_sqrt this]
+  rw [this]
+
 -- This lemma is what we need in the proof of CLT
 lemma iid_sum_to_cexp {Ω : Type*} [MeasureSpace Ω] [IsProbabilityMeasure (ℙ : Measure Ω)] {Y : ℕ → Ω → ℝ}
 (measurable : ∀ (j:ℕ), Measurable (Y j)) (indep : iIndepFun Y ℙ) (ident_distrib : ∀ i j : ℕ,  IdentDistrib (Y i) (Y j) ℙ ℙ)
@@ -414,21 +453,7 @@ lemma iid_sum_to_cexp {Ω : Type*} [MeasureSpace Ω] [IsProbabilityMeasure (ℙ 
     rw [formula]
     apply congrArg (fun x ↦ x^n)
     rw [← hv']
-    simp
-    -- For some reason we need to work a bit to prove that both sides are equal. It seems that Lean can't handle the following identity.
-    have : (((√v:ℂ))⁻¹ * (√(n:ℝ):ℂ)⁻¹) ^ 2 = (v⁻¹:ℂ) * (n:ℂ)⁻¹ := by
-      field_simp
-      have : (√v:ℂ) ^ 2 = (v:ℂ) := by
-        rw [show (√v:ℂ) ^ 2 = ((√v:ℝ)^2:ℝ) by simp, Real.sq_sqrt v_ge_zero]
-      rw [this]
-      have : (√(n:ℝ):ℂ)^ 2 = (n:ℂ) := by
-        have : (√(n:ℝ):ℂ) ^ 2 = ((√n:ℝ)^2:ℝ) := Eq.symm (Complex.ofReal_pow (√↑n) 2)
-        rw [this]
-        have : (n:ℝ) ≥ 0 := Nat.cast_nonneg' n
-        simp [Real.sq_sqrt this]
-      rw [this]
-      field_simp
-    rw [this]
+    simp [coercion_formula v n v_ge_zero]
     grind
   rw [approx_formula]
   set g : ℕ → ℂ := fun n ↦ (- 1 / n * (1 / 2) * t ^ 2 + t ^ 2 * (1 / v) * (1 / n) * ε (t * (1 / √v) * (1 / √n))) with hg
@@ -445,31 +470,7 @@ lemma iid_sum_to_cexp {Ω : Type*} [MeasureSpace Ω] [IsProbabilityMeasure (ℙ 
       simp
       field_simp
     rw [this]
-    have : Tendsto (fun n:ℕ ↦ (t:ℂ) ^ 2 * (v:ℂ)⁻¹ * ε (t * √v⁻¹ * (1 / √(n+1)))) atTop (𝓝 0) := by
-      rw [show (fun n:ℕ ↦ (t:ℂ) ^ 2 * (v:ℂ)⁻¹ * ε (t * √v⁻¹ * (1 / √(n+1)))) = (fun n:ℕ ↦ ((t:ℂ) ^ 2 * (v:ℂ)⁻¹) • ε (t * √v⁻¹ * (1 / √(n+1)))) by simp,
-          show (0:ℂ) = ((t:ℂ) ^ 2 * (v:ℂ)⁻¹) • 0 by simp]
-      apply Tendsto.const_smul
-      have : (fun n:ℕ ↦ ε (t * √v⁻¹ * (1 / √(n + 1)))) = ε ∘ (fun n:ℕ ↦ t * √v⁻¹ * (1 / √(n + 1))) := by
-        simp
-        grind
-      rw [this]
-      have : Tendsto ε (𝓝 0) (𝓝 0) := by
-        have : Continuous ε := (pε 0 0).left
-        apply Continuous.tendsto' this 0 0
-        exact (pε 0 0).right.left
-      apply Tendsto.comp this
-      rw [show (fun n:ℕ ↦ t * √v⁻¹ * (1 / √(↑n + 1))) = (fun n:ℕ ↦ (t * √v⁻¹) • (1 / √(↑n + 1))) by simp,
-          show (0:ℝ) = (t * √v⁻¹) • 0 by simp]
-      apply Tendsto.const_smul
-      rw [show (fun n:ℕ ↦ 1 / √(n + 1)) = (fun r:ℝ ↦ r⁻¹) ∘ (fun n:ℕ ↦ √(n + 1)) by ext n ; simp]
-      have : Tendsto (fun n:ℕ ↦ √(n + 1)) atTop atTop := by
-        rw [show (fun n:ℕ ↦ √(n + 1)) = Real.sqrt ∘ (fun n:ℕ ↦ (n+1)) by ext n ; simp]
-        apply Tendsto.comp Real.tendsto_sqrt_atTop
-        apply Tendsto.atTop_add_nonneg
-        exact tendsto_natCast_atTop_atTop
-        simp
-      apply Tendsto.comp _ this
-      exact tendsto_inv_atTop_zero
+    have := limit_claim t v ε (pε 0 0).left (pε 0 0).right.left
     have := Tendsto.const_add (-(t:ℂ)^2/2) this
     simp at this
     exact this
