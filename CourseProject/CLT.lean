@@ -31,4 +31,5 @@ theorem CLT : TendstoInDistribution
   have : ∀ t:ℝ, Tendsto (fun n:ℕ ↦ (charFun (ℓ n) t)) atTop (𝓝 (cexp (-t/2))) := by
     intro t
     sorry
+  #check charFun_gaussianReal (μ := 0) (v := 1)
   sorry

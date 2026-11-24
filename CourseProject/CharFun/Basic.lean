@@ -341,12 +341,13 @@ private lemma sub_mean_integral_zero {Ω : Type*} [MeasureSpace Ω] [IsProbabili
 
 lemma iid_sum_taylor_product {Ω : Type*} [MeasureSpace Ω] [IsProbabilityMeasure (ℙ : Measure Ω)] {Y : ℕ → Ω → ℝ}
 (measurable : ∀ (j:ℕ), Measurable (Y j)) (indep : iIndepFun Y ℙ) (ident_distrib : ∀ i j : ℕ,  IdentDistrib (Y i) (Y j) ℙ ℙ)
-(snd_moment : Integrable (fun x:ℝ ↦ |x|^2) (map (Y 1) ℙ)) (n:ℕ) (c:ℝ) :
-∃ ε : ℝ → ℂ, Continuous ε ∧ ε 0 = 0
+(snd_moment : Integrable (fun x:ℝ ↦ |x|^2) (map (Y 1) ℙ)):
+∃ ε : ℝ → ℂ, ∀ n: ℕ, ∀ c:ℝ, Continuous ε ∧ ε 0 = 0
 ∧ charFun (map (fun ω ↦ c * ∑ k : Icc 1 n , (Y k ω - ℙ[Y 1])) ℙ ) = (fun t:ℝ ↦ ((1 - (1/2) * c^2 * (∫ x:ℝ, x^2 ∂(map (fun ω ↦ Y 1 ω - ℙ[Y 1]) ℙ)) * t^2 + t^2 * c^2 * ε (t * c)) ^ n :ℂ)) := by
   have : Integrable (fun x:ℝ ↦ |x|^2) (map (fun ω ↦ Y 1 ω - ℙ[Y 1]) ℙ) := sub_mean_integrable (measurable 1) snd_moment
   obtain ⟨ε,pε⟩ := snd_taylor_charFun (map (fun ω ↦ Y 1 ω - ℙ[Y 1]) ℙ) this
   use ε
+  intro n c
   constructor
   · exact pε.left
   · constructor
