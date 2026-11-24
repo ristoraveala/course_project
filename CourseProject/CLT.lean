@@ -16,21 +16,23 @@ variable {X : ℕ → Ω → ℝ} (meas : ∀ n, Measurable (X n))
   (snd_moments : ∀ n, Integrable (fun x:ℝ ↦ |x|^2) (Measure.map (X n) ℙ))
   (variance_nonzero : ∫(x:ℝ) , |x|^2 ∂(Measure.map (fun ω ↦ X 1 ω - ℙ[X 1]) ℙ) ≠ 0)
 
-include meas independence ident_distrib snd_moments snd_moment_nonzero in
-theorem CLT : TendstoInDistribution
-  (fun (n:ℕ) ↦ fun ω ↦ (1/√(n * ∫(x:ℝ) , |x|^2 ∂(Measure.map (fun ω ↦ X 1 ω - ℙ[X 1]) ℙ))) * (∑ i : Finset.Icc 1 n, (X i ω - ℙ[X 1])))
-    atTop id (fun n ↦ ℙ) (gaussianReal 0 1) := by
-  set v := variance (X 1) ℙ
-  have v_ne_zero : v ≠ 0 := by sorry -- use snd_moment_nonzero
-  set ℓ := fun n:ℕ ↦ (Measure.map (fun ω ↦ (1/√(n * variance (X 1) ℙ)) * (∑ i : Finset.Icc 1 n, (X i ω - ℙ[X 1]))) ℙ) with hℓ
-  set ν := fun i:ℕ ↦ (Measure.map (fun ω ↦ (X i ω - ℙ[X 1])) ℙ) with hν
-  have ν_const : ∀ i, ν i = ν 1 := by
-    rw [hν]
-    intro i
-    apply IdentDistrib.map_eq
-    exact IdentDistrib.sub_const (ident_distrib i 1) (∫ (ω : Ω), X 1 ω)
-  have : ∀ t:ℝ, Tendsto (fun n:ℕ ↦ (charFun (ℓ n) t)) atTop (𝓝 (cexp (-t/2))) := by
+
+include meas independence ident_distrib snd_moments variance_nonzero in
+theorem CLT : Tendsto
+  (fun (n:ℕ) ↦ (Measure.map
+    (fun ω ↦ (1/√(n * ∫(x:ℝ), |x|^2 ∂(Measure.map (fun ω ↦ X 1 ω - ℙ[X 1]) ℙ))) * (∑ i : Finset.Icc 1 n, (X i ω - ℙ[X 1])))
+    ℙ).toProbabilityMeasure)
+    atTop (𝓝 (gaussianReal 0 1).toProbabilityMeasure) := by
+  set v := ∫ (x : ℝ), |x| ^ 2 ∂Measure.map (fun ω ↦ X 1 ω - ℙ[X 1]) ℙ with hv
+  have charFuns_converge :
+    ∀ (t : ℝ), Tendsto (fun n:ℕ  ↦ charFun (Measure.map (fun ω ↦ 1 / √(↑n * v) * ∑ k:Finset.Icc 1 n, (X k ω - ℙ[X 1])) ℙ) t)
+    atTop (𝓝 (charFun (gaussianReal 0 1) t)) := by
     intro t
-    sorry
-  #check charFun_gaussianReal (μ := 0) (v := 1)
-  sorry
+    have convergence := iid_sum_to_cexp meas independence ident_distrib (snd_moments 1) variance_nonzero t
+    rw [← hv] at convergence
+    simp [charFun_gaussianReal (μ := 0) (v := 1)]
+    simp [show cexp (-(t:ℂ) ^ 2 / 2) = cexp (-((t:ℂ) ^ 2 / 2)) by grind] at convergence
+    exact convergence
+  have gaussian_charFun := charFun_gaussianReal (μ := 0) (v := 1)
+  simp at gaussian_charFun
+  exact charFun_convergence (gaussianReal 0 1) charFuns_converge
