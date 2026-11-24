@@ -246,7 +246,7 @@ lemma snd_taylor_charFun (snd_moment : Integrable (fun x:ℝ ↦ |x|^2) μ) :
       rw [this] at ε_formula
       exact ε_formula
 
-/- The next lemma is used in the proof of the CLT, which we phrased in terms of random variables rather than measures.
+/- The next lemmas are used in the proof of the CLT, which we phrased in terms of random variables rather than measures.
    Thus we prove it for the law of independent random variables. The result is essentially a restatement of the lemma
    iIndepFun.charFun_map_fun_sum_eq_prod, but we just state it in a slightly more convenient form. -/
 
@@ -383,3 +383,13 @@ lemma iid_sum_taylor_product {Ω : Type*} [MeasureSpace Ω] [IsProbabilityMeasur
       have : ∫ x:ℝ, x ∂Measure.map (fun ω ↦ Y 1 ω - ℙ[Y 1]) ℙ = 0 := sub_mean_integral_zero (measurable 1) snd_moment
       simp [this]
       field_simp
+
+-- This lemma is what we need in the proof of CLT
+lemma iid_sum_to_cexp {Ω : Type*} [MeasureSpace Ω] [IsProbabilityMeasure (ℙ : Measure Ω)] {Y : ℕ → Ω → ℝ}
+(measurable : ∀ (j:ℕ), Measurable (Y j)) (indep : iIndepFun Y ℙ) (ident_distrib : ∀ i j : ℕ,  IdentDistrib (Y i) (Y j) ℙ ℙ)
+(snd_moment : Integrable (fun x:ℝ ↦ |x|^2) (map (Y 1) ℙ)) :
+∀ t:ℝ , Tendsto (fun n:ℕ ↦ (charFun (map (fun ω ↦ (1/√(n*variance (Y 1) ℙ)) * ∑ k : Icc 1 n , (Y k ω - ℙ[Y 1])) ℙ ) t) ) atTop (𝓝 (cexp (-t/2))) := by
+  intro t
+  obtain ⟨ε,pε⟩ := iid_sum_taylor_product measurable indep ident_distrib snd_moment
+
+  sorry
