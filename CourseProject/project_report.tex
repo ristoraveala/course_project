@@ -1,0 +1,106 @@
+\documentclass[12pt]{article}
+\usepackage[scaled=0.75]{DejaVuSansMono}
+\usepackage{fullpage}
+\usepackage{amsfonts}
+\usepackage{amsmath}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{enumitem}
+\usepackage{graphicx}
+%\usepackage[cache=false]{minted}
+\usepackage{listings}
+\usepackage{hyperref}
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    filecolor=magenta,      
+    urlcolor=cyan,
+}
+\usepackage{color}
+\definecolor{keywordcolor}{rgb}{0.7, 0.1, 0.1}   % red
+\definecolor{tacticcolor}{rgb}{0.0, 0.1, 0.6}    % blue
+\definecolor{commentcolor}{rgb}{0.4, 0.4, 0.4}   % grey
+\definecolor{symbolcolor}{rgb}{0.0, 0.1, 0.6}    % blue
+\definecolor{sortcolor}{rgb}{0.1, 0.5, 0.1}      % green
+\definecolor{attributecolor}{rgb}{0.7, 0.1, 0.1} % red
+
+\def\lstlanguagefiles{lstlean.tex}
+%\lstset{language=lean,basicstyle=\ttfamily,breaklines=true}
+
+\newtheorem{definition}{Definition}
+\newtheorem{theorem}{Theorem}
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{corollary}[theorem]{Corollary}
+
+\title{MS-EV0029 Project Contribution Report}
+\author{Risto Raveala}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+
+\section*{Project overview}
+As a part of the course MS-EV0029, I built a project that contains a proof of the Central Limit Theorem, using only results and definitions that are available in Mathlib. The Github repo is behind the following link:
+\begin{center}
+\textbf{Central Limit Theorem} \\
+Github repository: \url{https://github.com/ristoraveala/course_project}
+\end{center}
+
+The goal of the project is to show, that if $X_1$, $X_2,\ldots$ is a sequence of independent identically distributed random variables such that $\mathbb{E} X_1^2 < \infty$, and such that the sequence is not a sequence of deterministic constants (i.e. $\textrm{Var} (X_1) \ne 0$), then
+\[
+\frac{1}{\sqrt{n \cdot \textrm{Var} (X_1)}} \sum_{k=1}^n (X_k - \mathbb{E} X_k) \overset{d}{\longrightarrow} \mathcal{N}(0,1), \qquad n \to \infty,
+\]
+where $\mathcal{N}(0,1)$ denotes the standard normal distribution. More precisely, the main theorem is of the project is:
+
+\begin{theorem}[Central limit theorem]
+Suppose that $(X_1,X_2,\ldots)$ is a sequence of iid random variables such that $\mathbb{E} X_1^2 < \infty$. Denote
+\[
+\mu_n := \textrm{Law} \left[\frac{1}{\sqrt{n \cdot \textrm{Var} (X_1)}} \sum_{k=1}^n (X_k - \mathbb{E} X_k) \right].
+\]
+Then in the topology of weak convergence of probability measures of $\mathbb{R}$, the sequence $(\mu_n)_{n\in\mathbb{N}}$ converges to the standard normal distribution.
+\end{theorem}
+
+
+\section*{Main contributions}
+Below is a list of my most significant contributions made during the project:
+
+\begin{enumerate}[label=\arabic*:, leftmargin=1cm]
+
+    \item commit \href{https://github.com/ristoraveala/course_project/commit/880711fffb6b6ed5387d25e7a5b5876e41b2cb31}{880711f} \\
+    \textbf{Description:}
+    This contains the proof of most of the mathematical content one of the main lemmas, namely \lstinline{charFun_convergence}. The proof of \lstinline{charFun_convergence} is spread out in multiple commits, with the final commit dedicated to this proof being \href{https://github.com/ristoraveala/course_project/commit/596838fccb7eb732d234e8d88bad2c0218fa968c}{596838f}. The proof of this lemma was the most difficult task of the project, and it is difficult to identify one single commit in which the proof was finalized.
+
+    
+    \item commit \href{https://github.com/ristoraveala/course_project/commit/fc7fb82e8230f713eea08c8b9e075fd9af75da4c}{fc7fb82} \\ 
+    Proved \lstinline{iid_sum_taylor_product}, from which the second key lemma, \lstinline{iid_sum_to_cexp} follows.
+
+    \item commit \href{https://github.com/ristoraveala/course_project/commit/b6b62af2eea7d5f06709dfc11b21cb1c5c2c5514}{b6b62af} \\ 
+    Proved the the second key lemma, \lstinline{iid_sum_to_cexp} which shows that the characteristic functions of the $\mu_n$ as defined above converge pointwise to the characteristic function of standard normal distribution.
+    
+
+    %Add more commits as needed
+    %\item commit \href{https://the.url.of.fi/your/commit/or/pr}{abc123} \\ 
+    %Description.
+    %\lstinline{leanDeclarationName}
+    %\emph{(blueprint-label)}
+    
+\end{enumerate}
+
+The two main lemmas of the project were \lstinline{iid_sum_to_cexp} and \lstinline{charFun_convergence}. The second lemma required by far the most work in this project.
+
+The statement of the lemma is that if the characteristic functions of a sequence of probability measures $(\nu_n)$ (on $\mathbb{R}$) converge pointwise to a characteristic function of a probability measure $\nu$ (on $\mathbb{R}$), then $\nu_n \to \nu$ as $n\to\infty$ in the topology of weak convergence of measures. The proof has many stages: at first we prove the statement for measures with densities with respect to the Lebesgue measure on $\mathbb{R}$. This is lemma \lstinline{charFun_convergence_with_densities}. Then we prove that the convolution of the measures with a gaussian measure has a density and does satisfy the statement of the lemma \lstinline{charFun_convergence_with_densities}. We go on to prove a uniform estimate \lstinline{lipschitz_bdd_unif_approx} which shows that for fixed bounded and Lipschitz continuous function $f \colon \mathbb{R} \to \mathbb{R}$, the convergence $\int f \, \textrm{d}\nu^\delta \to \int f \, \textrm{d}\nu$, where $\nu^\delta$ denotes the convolution of $\nu$ with the law of a centered Gaussian with variance $\delta$, converges uniformly with respect to the measure $\nu$. From these ingredients the lemma \lstinline{charFun_convergence} follows.
+
+The proof of lemma \lstinline{iid_sum_to_cexp} is mathematically more straightforward, but requires some work in lean. The idea is that we show, as a consequence of multiple lemmas that build on this, that the characteristic function $\varphi_n$ of $(\sqrt{n \cdot \textrm{Var} (X_1)})^{-1} \sum_{k=1}^n (X_k - \mathbb{E} X_k)$ satisfies
+\[
+\varphi_n(t) = \left(1 - \frac{t^2}{2n} + o(1/n) \right)^n,
+\]
+which converges to $e^{-\frac{t^2}{2}}$, the characteristic function of a standard normal distribution at $t$, as $n\to\infty$.
+
+\section*{Notes}
+
+\subsubsection*{Collaboration:}
+This project was made entirely by me.
+\end{document}
